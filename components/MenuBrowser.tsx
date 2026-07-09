@@ -53,6 +53,9 @@ const getSignatureMealSortIndex = (itemName: string) => {
   return index === -1 ? signatureMealOrder.length : index;
 };
 
+const normalizeCategoryName = (categoryName: string) =>
+  categoryName.trim().replace(/\s+/g, " ").toLowerCase();
+
 function CartIcon() {
   return (
     <svg
@@ -142,13 +145,19 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
       return categories;
     }
 
-    const defaultCategoryDescriptions = new Map(
-      categories.map((category) => [category.name, category.description]),
+    const defaultCategoryDetails = new Map(
+      categories.map((category) => [
+        normalizeCategoryName(category.name),
+        {
+          name: category.name,
+          description: category.description,
+        },
+      ]),
     );
     const defaultItemStyles = new Map(
       categories.flatMap((category) =>
         category.items.map((item) => [
-          `${category.name.trim().toLowerCase()}::${item.name.trim().toLowerCase()}`,
+          `${normalizeCategoryName(category.name)}::${item.name.trim().toLowerCase()}`,
           item.imageTone,
         ]),
       ),
@@ -163,13 +172,15 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
         }
 
         const priceValue = Number(item.price);
-        const categoryName = item.category!;
-        const category = categoryMap.get(categoryName) ?? {
-          name: categoryName,
-          description: defaultCategoryDescriptions.get(categoryName) ?? "Freshly added dishes from Kai Thuttu Kitchens.",
+        const rawCategoryName = item.category!;
+        const categoryKey = normalizeCategoryName(rawCategoryName);
+        const defaultCategory = defaultCategoryDetails.get(categoryKey);
+        const category = categoryMap.get(categoryKey) ?? {
+          name: defaultCategory?.name ?? rawCategoryName.trim().replace(/\s+/g, " "),
+          description: defaultCategory?.description ?? "Freshly added dishes from Kai Thuttu Kitchens.",
           items: [],
         };
-        const styleKey = `${categoryName.trim().toLowerCase()}::${item.name!.trim().toLowerCase()}`;
+        const styleKey = `${categoryKey}::${item.name!.trim().toLowerCase()}`;
 
         category.items = [
           ...category.items,
@@ -178,7 +189,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
             price: item.priceLabel || `Rs. ${priceValue}`,
             priceValue,
             description:
-              item.category!.trim().toLowerCase() === signatureMealCategory
+              categoryKey === signatureMealCategory
                 ? signatureMealDescriptions[item.name!.trim().toLowerCase()]
                 : undefined,
             imageTone: defaultItemStyles.get(styleKey) ?? "from-[#2D1B14] via-[#F97316] to-[#E9B44C]",
@@ -186,11 +197,11 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
             isOutOfStock: item.isOutOfStock,
           },
         ];
-        categoryMap.set(categoryName, category);
+        categoryMap.set(categoryKey, category);
       });
 
     return Array.from(categoryMap.values()).map((category) => {
-      if (category.name.trim().toLowerCase() !== signatureMealCategory) {
+      if (normalizeCategoryName(category.name) !== signatureMealCategory) {
         return category;
       }
 
@@ -207,7 +218,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
 
   const orderedCategories = useMemo(() => {
     const categoryWeight = (categoryName: string) => {
-      const normalized = categoryName.trim().toLowerCase();
+      const normalized = normalizeCategoryName(categoryName);
 
       if (normalized === signatureMealCategory) {
         return 10;
@@ -232,7 +243,12 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
     });
   }, [mergedCategories]);
 
-  const categoryNames = [allCategory, ...orderedCategories.map((category) => category.name)];
+  const categoryNames = [
+    allCategory,
+    ...Array.from(
+      new Map(orderedCategories.map((category) => [normalizeCategoryName(category.name), category.name])).values(),
+    ),
+  ];
 
   const visibleCategories = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -241,9 +257,9 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
       .filter(
         (category) =>
           activeCategory === allCategory ||
-          category.name === activeCategory ||
-          (activeCategory.trim().toLowerCase() === signatureMealCategory &&
-            category.name.trim().toLowerCase() === signatureAddOnsCategory),
+          normalizeCategoryName(category.name) === normalizeCategoryName(activeCategory) ||
+          (normalizeCategoryName(activeCategory) === signatureMealCategory &&
+            normalizeCategoryName(category.name) === signatureAddOnsCategory),
       )
       .map((category) => ({
         ...category,
