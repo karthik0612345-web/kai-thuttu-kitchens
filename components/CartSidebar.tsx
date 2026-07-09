@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/components/CartContext";
+import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
 
 function QuantityButton({
   label,
@@ -25,6 +26,8 @@ function QuantityButton({
 }
 
 export default function CartSidebar() {
+  const router = useRouter();
+  const { requireCustomerAuth } = useCustomerAuthGate();
   const {
     cartLines,
     cartCount,
@@ -144,17 +147,23 @@ export default function CartSidebar() {
             <span className="text-[#E9B44C]">Rs. {cartTotal}</span>
           </div>
           <div className="grid gap-3">
-            <Link
-              href="/checkout"
-              onClick={closeCart}
+            <button
+              type="button"
+              onClick={() =>
+                requireCustomerAuth(() => {
+                  closeCart();
+                  router.push("/checkout");
+                })
+              }
+              disabled={cartCount === 0}
               className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-black transition ${
                 cartCount === 0
-                  ? "pointer-events-none bg-white/10 text-zinc-500"
+                  ? "cursor-not-allowed bg-white/10 text-zinc-500"
                   : "bg-[#E9B44C] text-black hover:bg-[#F97316] hover:text-white"
               }`}
             >
               Checkout
-            </Link>
+            </button>
             <button
               type="button"
               onClick={clearCart}

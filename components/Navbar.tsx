@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/CartContext";
+import { useAuth } from "@/components/AuthProvider";
+import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -56,11 +58,13 @@ function MenuIcon({ isOpen }: { isOpen: boolean }) {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { cartCount, openCart } = useCart();
+  const { user, signOut } = useAuth();
+  const { requireCustomerAuth, openCustomerLogin } = useCustomerAuthGate();
 
   const closeMenu = () => setIsOpen(false);
   const openCartAndCloseMenu = () => {
     closeMenu();
-    openCart();
+    requireCustomerAuth(openCart);
   };
 
   return (
@@ -96,9 +100,27 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
+          {user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              title={user.phoneNumber ?? user.email ?? "Signed in"}
+              className="rounded-full px-4 py-2 text-sm font-bold text-zinc-200 transition hover:bg-white/10 hover:text-amber-300"
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={openCustomerLogin}
+              className="rounded-full px-4 py-2 text-sm font-bold text-zinc-200 transition hover:bg-white/10 hover:text-amber-300"
+            >
+              Login
+            </button>
+          )}
           <button
             type="button"
-            onClick={openCart}
+            onClick={() => requireCustomerAuth(openCart)}
             aria-label="Cart"
             className="relative ml-2 grid size-11 place-items-center rounded-full border border-amber-300/40 text-amber-200 transition duration-300 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-300 hover:text-black"
           >
@@ -139,6 +161,29 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+            {user ? (
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  void signOut();
+                }}
+                className="rounded-lg px-4 py-3 text-left text-base font-bold text-zinc-100 transition hover:bg-white/10 hover:text-amber-300"
+              >
+                Sign out ({user.phoneNumber ?? user.email})
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  openCustomerLogin();
+                }}
+                className="rounded-lg px-4 py-3 text-left text-base font-bold text-zinc-100 transition hover:bg-white/10 hover:text-amber-300"
+              >
+                Customer login
+              </button>
+            )}
             <button
               type="button"
               onClick={openCartAndCloseMenu}

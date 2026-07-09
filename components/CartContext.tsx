@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
 
 export type CartMenuItem = {
   name: string;
@@ -44,6 +45,7 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 const cartStorageKey = "kai-thuttu-cart";
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { requireCustomerAuth } = useCustomerAuthGate();
   const [cartItems, setCartItems] = useState<Record<string, StoredCartItem>>({});
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -87,7 +89,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cartLines.reduce((total, item) => total + item.quantity, 0);
   const cartTotal = cartLines.reduce((total, item) => total + item.lineTotal, 0);
 
-  const addToCart = (item: CartMenuItem) => {
+  const addItem = (item: CartMenuItem) => {
     setCartItems((current) => ({
       ...current,
       [item.name]: {
@@ -96,6 +98,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
     }));
     setIsCartOpen(true);
+  };
+
+  const addToCart = (item: CartMenuItem) => {
+    requireCustomerAuth(() => addItem(item));
   };
 
   const increaseQuantity = (itemName: string) => {

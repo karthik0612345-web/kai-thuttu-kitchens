@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import CheckoutForm from "@/components/CheckoutForm";
 import Navbar from "@/components/Navbar";
+import CheckoutGuard from "@/components/CheckoutGuard";
 
 export const metadata: Metadata = {
   title: "Checkout | Kai Thuttu Kitchens",
@@ -29,7 +30,9 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      <CheckoutForm />
+      <CheckoutGuard>
+        <CheckoutForm />
+      </CheckoutGuard>
     </main>
   );
 }
