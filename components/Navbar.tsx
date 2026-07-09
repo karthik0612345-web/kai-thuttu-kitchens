@@ -69,13 +69,13 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/85 backdrop-blur-xl">
-      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-8 lg:px-10">
         <Link
           href="/"
-          className="group inline-flex min-w-0 items-center gap-3"
+          className="group inline-flex min-w-0 items-center gap-2 sm:gap-3"
           onClick={closeMenu}
         >
-          <span className="relative size-12 shrink-0 overflow-hidden rounded-full border border-amber-300/60 bg-black shadow-[0_0_24px_rgba(245,158,11,0.34)] transition duration-300 group-hover:scale-105 group-hover:border-orange-400">
+          <span className="relative size-10 shrink-0 overflow-hidden rounded-full border border-amber-300/60 bg-black shadow-[0_0_24px_rgba(245,158,11,0.34)] transition duration-300 group-hover:scale-105 group-hover:border-orange-400 sm:size-12">
             <Image
               src="/kai-thuttu-logo.jpeg"
               alt="Kai Thuttu Kitchens logo"
@@ -85,7 +85,7 @@ export default function Navbar() {
               priority
             />
           </span>
-          <span className="truncate text-sm font-black uppercase tracking-[0.18em] text-amber-100 transition-colors group-hover:text-orange-300 sm:text-base">
+          <span className="truncate text-xs font-black uppercase tracking-[0.12em] text-amber-100 transition-colors group-hover:text-orange-300 sm:text-base sm:tracking-[0.18em]">
             Kai Thuttu Kitchens
           </span>
         </Link>
@@ -138,7 +138,7 @@ export default function Navbar() {
           aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={isOpen}
           onClick={() => setIsOpen((current) => !current)}
-          className="grid size-11 place-items-center rounded-full border border-amber-300/40 text-amber-100 transition duration-300 hover:border-amber-300 hover:bg-amber-300 hover:text-black md:hidden"
+          className="grid size-10 place-items-center rounded-full border border-amber-300/40 text-amber-100 transition duration-300 hover:border-amber-300 hover:bg-amber-300 hover:text-black md:hidden"
         >
           <MenuIcon isOpen={isOpen} />
         </button>

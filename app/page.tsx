@@ -99,10 +99,10 @@ export default function Home() {
         <div className="absolute inset-0 -z-20 bg-[url('/kai-ruchi-hero.png')] bg-cover bg-[62%_center]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_20%,rgba(233,180,76,0.32),transparent_28%),linear-gradient(90deg,rgba(17,17,17,0.96)_0%,rgba(45,27,20,0.88)_46%,rgba(17,17,17,0.36)_100%)]" />
 
-        <div className="mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
+        <div className="mx-auto grid min-h-[calc(100vh-64px)] max-w-7xl items-center gap-8 px-4 py-10 sm:min-h-[calc(100vh-80px)] sm:px-8 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
           <div className="animate-[fadeUp_900ms_ease-out_both]">
-            <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-[#E9B44C]/35 bg-black/45 px-4 py-2 backdrop-blur">
-              <span className="relative size-10 overflow-hidden rounded-full">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#E9B44C]/35 bg-black/45 px-3 py-1.5 backdrop-blur sm:mb-7 sm:gap-3 sm:px-4 sm:py-2">
+              <span className="relative size-8 overflow-hidden rounded-full sm:size-10">
                 <Image
                   src="/kai-thuttu-logo.jpeg"
                   alt="Kai Thuttu Kitchens logo"
@@ -112,27 +112,27 @@ export default function Home() {
                   priority
                 />
               </span>
-              <span className="text-xs font-black uppercase tracking-[0.22em] text-[#E9B44C]">
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#E9B44C] sm:text-xs sm:tracking-[0.22em]">
                 Traditional Karnataka Homestyle Kitchen
               </span>
             </div>
 
-            <h1 className="max-w-4xl text-5xl font-black leading-[0.95] tracking-normal text-white sm:text-7xl lg:text-8xl">
+            <h1 className="max-w-4xl text-4xl font-black leading-[0.95] tracking-normal text-white sm:text-7xl lg:text-8xl">
               Kai Thuttu Kitchens
             </h1>
-            <p className="mt-6 max-w-2xl text-2xl font-bold leading-snug text-[#E9B44C] sm:text-3xl">
+            <p className="mt-4 max-w-2xl text-lg font-bold leading-snug text-[#E9B44C] sm:mt-6 sm:text-3xl">
               Healthy Traditional Food Delivered Fresh
             </p>
-            <p className="mt-5 max-w-xl text-base leading-8 text-zinc-200 sm:text-lg">
+            <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-200 sm:mt-5 sm:text-lg sm:leading-8">
               Premium homestyle Karnataka meals for families, office employees,
               students, and health-conscious food lovers. Fresh mudde meals,
               biriyani, kabab, roti, and healthy combos made with care.
             </p>
 
-            <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3 sm:mt-9 sm:flex-row sm:gap-4">
               <Link
                 href="/menu"
-                className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-base font-black text-white shadow-[0_18px_45px_rgba(249,115,22,0.35)] transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[#F97316] px-6 text-sm font-black text-white shadow-[0_18px_45px_rgba(249,115,22,0.35)] transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black sm:h-14 sm:px-8 sm:text-base"
               >
                 Explore Menu
               </Link>
@@ -140,7 +140,7 @@ export default function Home() {
                 href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-14 items-center justify-center rounded-full border border-[#E9B44C]/70 bg-black/35 px-8 text-base font-black text-[#E9B44C] backdrop-blur transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-[#E9B44C]/70 bg-black/35 px-6 text-sm font-black text-[#E9B44C] backdrop-blur transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black sm:h-14 sm:px-8 sm:text-base"
               >
                 Order on WhatsApp
               </a>
@@ -163,25 +163,25 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="featured" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10">
-        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section id="featured" className="mx-auto max-w-7xl px-3 py-12 sm:px-8 sm:py-20 lg:px-10">
+        <div className="mb-6 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.24em] text-[#F97316]">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#F97316] sm:text-sm sm:tracking-[0.24em]">
               Featured Menu
             </p>
-            <h2 className="mt-4 max-w-2xl text-4xl font-black leading-tight text-white sm:text-5xl">
+            <h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-white sm:mt-4 sm:text-5xl">
               Karnataka comfort food with a polished delivery experience.
             </h2>
           </div>
           <Link
             href="/menu"
-            className="inline-flex h-12 items-center justify-center rounded-full border border-[#E9B44C]/50 px-6 text-sm font-black text-[#E9B44C] transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-[#E9B44C]/50 px-4 text-xs font-black text-[#E9B44C] transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-6 sm:text-sm"
           >
             View Full Menu
           </Link>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           {featuredMenu.map((item) => (
             <Link
               key={item.name}
@@ -193,16 +193,16 @@ export default function Home() {
                   src={item.image}
                   alt={item.name}
                   fill
-                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 50vw"
                   className="object-cover transition duration-500 group-hover:scale-105"
                   style={{ objectPosition: item.imagePosition }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
               </div>
-              <div className="p-5">
-                <h3 className="text-xl font-black text-[#E9B44C]">{item.name}</h3>
-                <p className="mt-2 leading-7 text-zinc-300">{item.detail}</p>
-                <p className="mt-4 inline-flex rounded-full bg-[#E9B44C] px-4 py-2 text-sm font-black text-black">
+              <div className="p-3 sm:p-5">
+                <h3 className="text-sm font-black text-[#E9B44C] sm:text-xl">{item.name}</h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-300 sm:mt-2 sm:text-base sm:leading-7">{item.detail}</p>
+                <p className="mt-3 inline-flex rounded-full bg-[#E9B44C] px-3 py-1.5 text-xs font-black text-black sm:mt-4 sm:px-4 sm:py-2 sm:text-sm">
                   {item.price}
                 </p>
               </div>

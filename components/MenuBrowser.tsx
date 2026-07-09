@@ -84,16 +84,16 @@ function FoodPlaceholder({
       {!imageUrl && (
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.28),transparent_22%),radial-gradient(circle_at_78%_76%,rgba(0,0,0,0.26),transparent_34%)]" />
       )}
-      <div className="absolute left-5 top-5 rounded-full bg-black/35 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
+      <div className="absolute left-2 top-2 rounded-full bg-black/35 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-white backdrop-blur sm:left-5 sm:top-5 sm:px-3 sm:py-1 sm:text-xs sm:tracking-[0.18em]">
         {category}
       </div>
-      <div className="absolute bottom-5 left-5 right-5">
-        <div className="mb-3 flex gap-2">
-          <span className="size-10 rounded-full bg-white/80 shadow-lg" />
-          <span className="size-10 rounded-full bg-[#E9B44C]/90 shadow-lg" />
-          <span className="size-10 rounded-full bg-[#F97316]/90 shadow-lg" />
+      <div className="absolute bottom-3 left-3 right-3 sm:bottom-5 sm:left-5 sm:right-5">
+        <div className="mb-2 flex gap-1.5 sm:mb-3 sm:gap-2">
+          <span className="size-6 rounded-full bg-white/80 shadow-lg sm:size-10" />
+          <span className="size-6 rounded-full bg-[#E9B44C]/90 shadow-lg sm:size-10" />
+          <span className="size-6 rounded-full bg-[#F97316]/90 shadow-lg sm:size-10" />
         </div>
-        <p className="text-2xl font-black leading-tight text-white drop-shadow">
+        <p className="text-sm font-black leading-tight text-white drop-shadow sm:text-2xl">
           {name}
         </p>
       </div>
@@ -363,9 +363,9 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
   }, [addToCart, handledMenuAction, orderedCategories, router, searchParams]);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10">
-      <div className="sticky top-20 z-30 -mx-5 border-y border-white/10 bg-[#111111]/95 px-5 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <section className="mx-auto max-w-7xl px-3 pb-16 sm:px-8 sm:pb-20 lg:px-10">
+      <div className="sticky top-16 z-30 -mx-3 border-y border-white/10 bg-[#111111]/95 px-3 py-3 backdrop-blur-xl sm:top-20 sm:-mx-8 sm:px-8 sm:py-4 lg:-mx-10 lg:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <label className="relative block w-full xl:max-w-md">
             <span className="sr-only">Search menu items</span>
             <input
@@ -373,7 +373,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search biriyani, kabab, mudde..."
-              className="h-12 w-full rounded-full border border-[#E9B44C]/25 bg-black/45 px-5 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+              className="h-10 w-full rounded-full border border-[#E9B44C]/25 bg-black/45 px-4 text-xs font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10 sm:h-12 sm:px-5 sm:text-sm"
             />
           </label>
 
@@ -383,7 +383,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                 key={category}
                 type="button"
                 onClick={() => setActiveCategory(category)}
-                className={`h-11 shrink-0 rounded-full px-4 text-sm font-black transition duration-300 ${
+                className={`h-9 shrink-0 rounded-full px-3 text-xs font-black transition duration-300 sm:h-11 sm:px-4 sm:text-sm ${
                   activeCategory === category
                     ? "bg-[#E9B44C] text-black shadow-[0_12px_30px_rgba(233,180,76,0.22)]"
                     : "border border-white/10 bg-white/[0.06] text-zinc-200 hover:-translate-y-0.5 hover:border-[#F97316]/70 hover:text-[#E9B44C]"
@@ -397,14 +397,14 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
           <button
             type="button"
             onClick={openCart}
-            className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-[#F97316] px-6 text-sm font-black text-white transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#F97316] px-4 text-xs font-black text-white transition duration-300 hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-6 sm:text-sm"
           >
             Cart: {cartCount} items | Rs. {cartTotal}
           </button>
         </div>
       </div>
 
-      <div className="mt-12 flex flex-col gap-14">
+      <div className="mt-8 flex flex-col gap-10 sm:mt-12 sm:gap-14">
         {visibleCategories.length > 0 ? (
           visibleCategories.map((category) => {
             const isHealthyFood = isHealthyCategory(category.name);
@@ -412,31 +412,31 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
 
             return (
             <div key={category.name} id={category.name.toLowerCase().replaceAll(" ", "-")}>
-              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.24em] text-[#F97316]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#F97316] sm:text-sm sm:tracking-[0.24em]">
                     Category
                   </p>
-                  <h2 className="mt-2 text-3xl font-black text-white sm:text-4xl">
+                  <h2 className="mt-1 text-2xl font-black text-white sm:mt-2 sm:text-4xl">
                     {category.name}
                   </h2>
                 </div>
-                <p className="max-w-xl leading-7 text-zinc-300">
+                <p className="max-w-xl text-sm leading-6 text-zinc-300 sm:text-base sm:leading-7">
                   {category.description}
                 </p>
               </div>
 
               {isHealthyFood && (
-                <div className="mb-6 rounded-lg border border-[#E9B44C]/25 bg-[#E9B44C]/10 p-5">
+                <div className="mb-5 rounded-lg border border-[#E9B44C]/25 bg-[#E9B44C]/10 p-4 sm:mb-6 sm:p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.22em] text-[#E9B44C]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#E9B44C] sm:text-sm sm:tracking-[0.22em]">
                         Healthy food combo
                       </p>
-                      <p className="mt-2 text-lg font-black text-white">
+                      <p className="mt-1 text-base font-black text-white sm:mt-2 sm:text-lg">
                         Pick any {healthyComboSize} items for Rs. {healthyComboPrice}
                       </p>
-                      <p className="mt-1 text-sm text-zinc-300">
+                      <p className="mt-1 text-xs text-zinc-300 sm:text-sm">
                         Selected {healthySelections.length}/{healthyComboSize}. Healthy food items are not sold separately.
                       </p>
                     </div>
@@ -444,7 +444,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                       type="button"
                       disabled={healthySelections.length !== healthyComboSize}
                       onClick={addHealthyComboToCart}
-                      className={`h-12 rounded-full px-6 text-sm font-black transition ${
+                      className={`h-10 rounded-full px-4 text-xs font-black transition sm:h-12 sm:px-6 sm:text-sm ${
                         healthySelections.length === healthyComboSize
                           ? "bg-[#F97316] text-white hover:bg-[#E9B44C] hover:text-black"
                           : "cursor-not-allowed bg-white/10 text-zinc-500"
@@ -456,7 +456,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                 </div>
               )}
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                 {category.items.map((item) => {
                   const quantity = getItemQuantity(item.name);
                   const isOutOfStock = item.isOutOfStock === true;
@@ -469,7 +469,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                   return (
                     <article
                       key={item.name}
-                      className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#F97316]/70 hover:bg-white/[0.09]"
+                      className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] shadow-[0_18px_45px_rgba(0,0,0,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#F97316]/70 hover:bg-white/[0.09] sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
                     >
                       <FoodPlaceholder
                         name={item.name}
@@ -477,24 +477,24 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                         imageTone={item.imageTone}
                         imageUrl={item.imageUrl}
                       />
-                      <div className="flex min-h-44 flex-col p-5">
-                        <h3 className="text-xl font-black leading-snug text-amber-50">
+                      <div className="flex min-h-36 flex-col p-3 sm:min-h-44 sm:p-5">
+                        <h3 className="text-sm font-black leading-snug text-amber-50 sm:text-xl">
                           {item.name}
                         </h3>
-                        <p className="mt-2 text-lg font-black text-[#E9B44C]">
+                        <p className="mt-1 text-sm font-black text-[#E9B44C] sm:mt-2 sm:text-lg">
                           {isHealthyFood ? `Pick any ${healthyComboSize} @ Rs. ${healthyComboPrice}` : item.price}
                         </p>
                         {isOutOfStock && (
-                          <p className="mt-3 w-fit rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-red-200">
+                          <p className="mt-2 w-fit rounded-full border border-red-400/30 bg-red-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-red-200 sm:mt-3 sm:px-3 sm:text-xs sm:tracking-[0.18em]">
                             Out of stock
                           </p>
                         )}
                         {isSignatureMeal && !isOutOfStock ? (
                           <div className="mt-auto grid gap-2">
-                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400 sm:text-xs sm:tracking-[0.16em]">
                               Choose plan
                             </p>
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="grid grid-cols-2 gap-2">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -504,7 +504,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                                     plan: "Weekly",
                                   })
                                 }
-                                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#F97316] px-4 text-sm font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black"
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#F97316] px-2 text-[11px] font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-4 sm:text-sm"
                               >
                                 Weekly
                               </button>
@@ -517,7 +517,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                                     plan: "Monthly",
                                   })
                                 }
-                                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#E9B44C]/40 px-4 text-sm font-black text-[#E9B44C] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black"
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#E9B44C]/40 px-2 text-[11px] font-black text-[#E9B44C] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-4 sm:text-sm"
                               >
                                 Monthly
                               </button>
@@ -540,7 +540,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                               category: category.name,
                             });
                           }}
-                          className={`mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-black transition duration-300 ${
+                          className={`mt-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-black transition duration-300 sm:h-12 sm:gap-2 sm:px-5 sm:text-sm ${
                             isOutOfStock || isHealthySelectionDisabled
                               ? "cursor-not-allowed bg-white/10 text-zinc-500"
                               : isHealthySelected
