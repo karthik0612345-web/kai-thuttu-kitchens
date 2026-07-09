@@ -55,6 +55,16 @@ export default function AdminOrderManagement() {
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [statusEdits, setStatusEdits] = useState<Record<string, OrderStatus>>({});
+  const [deliveryEdits, setDeliveryEdits] = useState<
+    Record<
+      string,
+      {
+        estimatedDeliveryMinutes: string;
+        deliveryPersonName: string;
+        deliveryPersonPhone: string;
+      }
+    >
+  >({});
   const [message, setMessage] = useState<string | null>(null);
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,13 +142,32 @@ export default function AdminOrderManagement() {
     }));
   };
 
+  const getDeliveryEditValues = (order: AdminOrder) => {
+    return deliveryEdits[order.id] ?? {
+      estimatedDeliveryMinutes: order.estimatedDeliveryMinutes?.toString() ?? "",
+      deliveryPersonName: order.deliveryPerson?.name ?? "",
+      deliveryPersonPhone: order.deliveryPerson?.phoneNumber ?? "",
+    };
+  };
+
+  const handleDeliveryEditChange = (
+    order: AdminOrder,
+    field: "estimatedDeliveryMinutes" | "deliveryPersonName" | "deliveryPersonPhone",
+    value: string,
+  ) => {
+    const currentEdit = getDeliveryEditValues(order);
+
+    setDeliveryEdits((current) => ({
+      ...current,
+      [order.id]: {
+        ...currentEdit,
+        [field]: value,
+      },
+    }));
+  };
+
   const saveOrderStatus = async (order: AdminOrder) => {
     const selectedStatus = statusEdits[order.id] ?? order.status ?? "pending";
-
-    if (selectedStatus === order.status) {
-      setMessage("No status change detected for this order.");
-      return;
-    }
 
     if (!db) {
       setMessage("Firebase is not configured.");
@@ -149,8 +178,22 @@ export default function AdminOrderManagement() {
     setMessage(null);
 
     try {
+      const deliveryEdit = getDeliveryEditValues(order);
+      const estimatedDeliveryMinutes = deliveryEdit.estimatedDeliveryMinutes
+        ? Number(deliveryEdit.estimatedDeliveryMinutes)
+        : null;
+      const deliveryPerson =
+        deliveryEdit.deliveryPersonName || deliveryEdit.deliveryPersonPhone
+          ? {
+              name: deliveryEdit.deliveryPersonName,
+              phoneNumber: deliveryEdit.deliveryPersonPhone,
+            }
+          : order.deliveryPerson ?? null;
+
       await updateDoc(doc(db, "orders", order.id), {
         status: selectedStatus,
+        estimatedDeliveryMinutes,
+        deliveryPerson,
         updatedAt: serverTimestamp(),
         [`statusHistory.${selectedStatus}`]: serverTimestamp(),
       });
@@ -182,6 +225,11 @@ export default function AdminOrderManagement() {
       }
 
       setStatusEdits((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
+      setDeliveryEdits((current) => {
         const next = { ...current };
         delete next[order.id];
         return next;
@@ -271,6 +319,7 @@ export default function AdminOrderManagement() {
             const statusHistory = getStatusHistory(order);
             const hasChange = currentStatus !== (order.status ?? "pending");
             const saving = savingOrderId === order.id;
+            const deliveryEdit = getDeliveryEditValues(order);
             const orderTime = order.createdAt?.toDate();
             const updatedTime = order.updatedAt?.toDate();
 
@@ -329,12 +378,52 @@ export default function AdminOrderManagement() {
                         ))}
                       </select>
                     </label>
+                    <div className="grid gap-3 rounded-3xl border border-white/10 bg-black/20 p-4">
+                      <label className="grid gap-2 text-sm font-bold text-zinc-200">
+                        Delivery time in minutes
+                        <input
+                          type="number"
+                          min="0"
+                          value={deliveryEdit.estimatedDeliveryMinutes}
+                          onChange={(event) =>
+                            handleDeliveryEditChange(order, "estimatedDeliveryMinutes", event.target.value)
+                          }
+                          placeholder="e.g. 30"
+                          className="h-12 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none transition focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold text-zinc-200">
+                        Delivery boy name
+                        <input
+                          value={deliveryEdit.deliveryPersonName}
+                          onChange={(event) =>
+                            handleDeliveryEditChange(order, "deliveryPersonName", event.target.value)
+                          }
+                          placeholder="Name"
+                          className="h-12 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none transition focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold text-zinc-200">
+                        Delivery boy mobile number
+                        <input
+                          value={deliveryEdit.deliveryPersonPhone}
+                          onChange={(event) =>
+                            handleDeliveryEditChange(order, "deliveryPersonPhone", event.target.value)
+                          }
+                          placeholder="+91..."
+                          className="h-12 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none transition focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+                        />
+                      </label>
+                    </div>
                     <button
                       type="button"
                       onClick={() => saveOrderStatus(order)}
-                      disabled={!hasChange || saving}
+                      disabled={saving}
                       className={`h-14 rounded-full px-5 text-sm font-black transition ${
-                        hasChange
+                        hasChange ||
+                        deliveryEdit.estimatedDeliveryMinutes ||
+                        deliveryEdit.deliveryPersonName ||
+                        deliveryEdit.deliveryPersonPhone
                           ? "bg-[#F97316] text-black hover:bg-[#E9B44C]"
                           : "cursor-not-allowed bg-white/5 text-zinc-500"
                       }`}

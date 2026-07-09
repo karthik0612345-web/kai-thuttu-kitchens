@@ -47,6 +47,22 @@ type RecentOrderSummary = {
 
 const statusSteps = orderStatusSequence;
 
+async function showOrderNotification(title: string, options: NotificationOptions) {
+  if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration) {
+      await registration.showNotification(title, options);
+      return;
+    }
+  }
+
+  new Notification(title, options);
+}
+
 export default function OrderTrackingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -156,12 +172,10 @@ export default function OrderTrackingClient() {
       statusNotificationText[order.status as OrderStatus] ??
       `Your order is now ${formatStatus(order.status)}.`;
 
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      new Notification(`Order ${order.orderId} updated`, {
+    void showOrderNotification(`Order ${order.orderId} updated`, {
         body,
         icon: "/kai-thuttu-logo.jpeg",
-      });
-    }
+    });
   }, [order?.orderId, order?.status]);
 
   useEffect(() => {
@@ -403,18 +417,30 @@ export default function OrderTrackingClient() {
                     </div>
                   </div>
 
-                  {estimatedDeliveryTime && (
-                    <p className="rounded-2xl bg-white/5 px-4 py-4 text-sm text-zinc-300">
-                      Estimated delivery by <span className="font-semibold text-white">{estimatedDeliveryTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                    </p>
-                  )}
-
-                  {(order.status === "out_for_delivery" || order.status === "delivered") && (
+                  {(estimatedDeliveryTime || order.deliveryPerson?.name || order.deliveryPerson?.phoneNumber) && (
                     <div className="rounded-2xl bg-white/5 px-4 py-4 text-sm text-zinc-300">
-                      <p className="font-black text-white">Delivery partner</p>
-                      <p>{order.deliveryPerson?.name ?? "Not assigned yet"}</p>
+                      <p className="font-black text-white">Delivery details</p>
+                      {estimatedDeliveryTime && (
+                        <p className="mt-1">
+                          Estimated delivery by{" "}
+                          <span className="font-semibold text-white">
+                            {estimatedDeliveryTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </p>
+                      )}
+                      <p className="mt-2">
+                        Delivery partner:{" "}
+                        <span className="font-semibold text-white">
+                          {order.deliveryPerson?.name ?? "Not assigned yet"}
+                        </span>
+                      </p>
                       {order.deliveryPerson?.phoneNumber && (
-                        <p className="mt-1 text-sm text-zinc-400">Call: {order.deliveryPerson.phoneNumber}</p>
+                        <a
+                          href={`tel:${order.deliveryPerson.phoneNumber}`}
+                          className="mt-1 block text-sm font-semibold text-[#E9B44C] hover:text-white"
+                        >
+                          Call: {order.deliveryPerson.phoneNumber}
+                        </a>
                       )}
                     </div>
                   )}

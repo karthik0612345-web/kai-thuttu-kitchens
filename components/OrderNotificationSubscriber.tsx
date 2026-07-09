@@ -13,6 +13,13 @@ async function registerServiceWorker() {
     throw new Error("Service workers are not supported in this browser.");
   }
 
+  const existingRegistration = await navigator.serviceWorker.getRegistration();
+
+  if (existingRegistration) {
+    await existingRegistration.update();
+    return existingRegistration;
+  }
+
   return navigator.serviceWorker.register(serviceWorkerPath);
 }
 
@@ -46,6 +53,10 @@ export default function OrderNotificationSubscriber({
 
     async function activatePush() {
       try {
+        if (!("Notification" in window)) {
+          return;
+        }
+
         const registration = await registerServiceWorker();
 
         if (Notification.permission === "default") {
@@ -65,7 +76,7 @@ export default function OrderNotificationSubscriber({
         const messaging = getMessaging(firebaseApp!);
         unsub = onMessage(messaging, (payload) => {
           if (payload.notification?.title) {
-            new Notification(payload.notification.title, {
+            registration.showNotification(payload.notification.title, {
               body: payload.notification.body,
               icon: payload.notification.icon,
             });
