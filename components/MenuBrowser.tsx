@@ -14,6 +14,7 @@ export type MenuCategory = {
     price: string;
     priceValue: number;
     priceLabel?: string;
+    description?: string;
     imageTone: string;
     imageUrl?: string;
     isOutOfStock?: boolean;
@@ -37,6 +38,20 @@ const signatureMealCategory = "signature meal boxes starter";
 const signatureAddOnsCategory = "healthy drinks add-ons";
 const healthyComboSize = 5;
 const healthyComboPrice = 160;
+const signatureMealDescriptions: Record<string, string> = {
+  "balance box": "1 salad, 1 vegetable dish, and 2 fruit portions.",
+  "smart fuel box (grand box)": "1 salad, 1 vegetable dish, 1 egg, and 3 fruit portions.",
+  "power nourish box (royal box)": "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, and 4 fruit portions.",
+  "chicken power nourish box (royal box)":
+    "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, boiled chicken, and 4 fruit portions.",
+};
+
+const signatureMealOrder = Object.keys(signatureMealDescriptions);
+
+const getSignatureMealSortIndex = (itemName: string) => {
+  const index = signatureMealOrder.indexOf(itemName.trim().toLowerCase());
+  return index === -1 ? signatureMealOrder.length : index;
+};
 
 function CartIcon() {
   return (
@@ -162,6 +177,10 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
             name: item.name!,
             price: item.priceLabel || `Rs. ${priceValue}`,
             priceValue,
+            description:
+              item.category!.trim().toLowerCase() === signatureMealCategory
+                ? signatureMealDescriptions[item.name!.trim().toLowerCase()]
+                : undefined,
             imageTone: defaultItemStyles.get(styleKey) ?? "from-[#2D1B14] via-[#F97316] to-[#E9B44C]",
             imageUrl: item.imageUrl,
             isOutOfStock: item.isOutOfStock,
@@ -170,7 +189,20 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
         categoryMap.set(categoryName, category);
       });
 
-    return Array.from(categoryMap.values());
+    return Array.from(categoryMap.values()).map((category) => {
+      if (category.name.trim().toLowerCase() !== signatureMealCategory) {
+        return category;
+      }
+
+      return {
+        ...category,
+        items: [...category.items].sort(
+          (first, second) =>
+            getSignatureMealSortIndex(first.name) -
+            getSignatureMealSortIndex(second.name),
+        ),
+      };
+    });
   }, [adminItems, categories]);
 
   const orderedCategories = useMemo(() => {
@@ -475,6 +507,11 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                         <h3 className="text-sm font-black leading-snug text-amber-50 sm:text-xl">
                           {item.name}
                         </h3>
+                        {item.description && (
+                          <p className="mt-1 text-[11px] leading-4 text-zinc-300 sm:mt-2 sm:text-sm sm:leading-6">
+                            {item.description}
+                          </p>
+                        )}
                         <p className="mt-1 text-sm font-black text-[#E9B44C] sm:mt-2 sm:text-lg">
                           {isHealthyFood ? `Pick any ${healthyComboSize} @ Rs. ${healthyComboPrice}` : item.price}
                         </p>

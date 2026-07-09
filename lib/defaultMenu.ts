@@ -73,24 +73,28 @@ export const defaultMenuCategories: MenuCategory[] = [
     items: [
       {
         name: "Balance Box",
+        description: "1 salad, 1 vegetable dish, and 2 fruit portions.",
         price: "Weekly Rs. 410 | Monthly Rs. 1500",
         priceValue: 410,
         imageTone: "from-emerald-800 via-lime-600 to-[#E9B44C]",
       },
       {
         name: "Smart Fuel Box (Grand Box)",
+        description: "1 salad, 1 vegetable dish, 1 egg, and 3 fruit portions.",
         price: "Weekly Rs. 610 | Monthly Rs. 2399",
         priceValue: 610,
         imageTone: "from-green-900 via-yellow-600 to-orange-500",
       },
       {
         name: "Power Nourish Box (Royal Box)",
+        description: "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, and 4 fruit portions.",
         price: "Weekly Rs. 710 | Monthly Rs. 2799",
         priceValue: 710,
         imageTone: "from-[#2D1B14] via-emerald-700 to-[#E9B44C]",
       },
       {
         name: "Chicken Power Nourish Box (Royal Box)",
+        description: "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, boiled chicken, and 4 fruit portions.",
         price: "Weekly Rs. 910 | Monthly Rs. 3599",
         priceValue: 910,
         imageTone: "from-red-950 via-[#F97316] to-[#E9B44C]",
