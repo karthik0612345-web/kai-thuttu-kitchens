@@ -58,12 +58,10 @@ function CartIcon() {
 }
 
 function FoodPlaceholder({
-  name,
   category,
   imageTone,
   imageUrl,
 }: {
-  name: string;
   category: string;
   imageTone: string;
   imageUrl?: string;
@@ -88,14 +86,11 @@ function FoodPlaceholder({
         {category}
       </div>
       <div className="absolute bottom-3 left-3 right-3 sm:bottom-5 sm:left-5 sm:right-5">
-        <div className="mb-2 flex gap-1.5 sm:mb-3 sm:gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <span className="size-6 rounded-full bg-white/80 shadow-lg sm:size-10" />
           <span className="size-6 rounded-full bg-[#E9B44C]/90 shadow-lg sm:size-10" />
           <span className="size-6 rounded-full bg-[#F97316]/90 shadow-lg sm:size-10" />
         </div>
-        <p className="text-sm font-black leading-tight text-white drop-shadow sm:text-2xl">
-          {name}
-        </p>
       </div>
     </div>
   );
@@ -472,7 +467,6 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                       className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] shadow-[0_18px_45px_rgba(0,0,0,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#F97316]/70 hover:bg-white/[0.09] sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
                     >
                       <FoodPlaceholder
-                        name={item.name}
                         category={category.name}
                         imageTone={item.imageTone}
                         imageUrl={item.imageUrl}
