@@ -45,6 +45,7 @@ type AdminOrder = {
     phoneNumber?: string;
   };
   notificationToken?: string;
+  notificationTokens?: string[];
   statusHistory?: Record<string, Timestamp>;
 };
 
@@ -285,7 +286,9 @@ export default function AdminDashboard() {
     }
 
     const order = orders.find((item) => item.id === orderId);
-    const token = order?.notificationToken;
+    const notificationTokens = Array.from(
+      new Set([...(order?.notificationTokens ?? []), ...(order?.notificationToken ? [order.notificationToken] : [])]),
+    );
     const edits = order ? getOrderEditValues(order) : null;
     const deliveryPerson = edits?.deliveryPersonName || edits?.deliveryPersonPhone
       ? {
@@ -304,7 +307,7 @@ export default function AdminDashboard() {
       [`statusHistory.${status}`]: serverTimestamp(),
     });
 
-    if (token) {
+    if (notificationTokens.length > 0) {
       try {
         await fetch("/api/notify-order-status", {
           method: "POST",
@@ -312,8 +315,8 @@ export default function AdminDashboard() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            token,
-            orderId,
+            tokens: notificationTokens,
+            orderId: order?.orderId ?? orderId,
             status,
           }),
         });

@@ -171,15 +171,19 @@ async function sendLegacyFcm({
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const { token, orderId, status } = payload as {
+  const { token, tokens, orderId, status } = payload as {
     token?: string;
+    tokens?: string[];
     orderId?: string;
     status?: string;
   };
+  const targetTokens = Array.from(
+    new Set([...(tokens ?? []), ...(token ? [token] : [])].filter(Boolean)),
+  );
 
-  if (!token || !orderId || !status) {
+  if (targetTokens.length === 0 || !orderId || !status) {
     return NextResponse.json(
-      { error: "Missing token, orderId, or status." },
+      { error: "Missing notification token, orderId, or status." },
       { status: 400 },
     );
   }
@@ -190,12 +194,23 @@ export async function POST(request: Request) {
     `Your order status is now ${status}. Tap to track your delivery.`;
 
   try {
-    const result =
-      firebaseClientEmail && firebasePrivateKey
-        ? await sendFcmV1({ token, orderId, title, body })
-        : await sendLegacyFcm({ token, orderId, title, body });
+    const results = await Promise.allSettled(
+      targetTokens.map((targetToken) =>
+        firebaseClientEmail && firebasePrivateKey
+          ? sendFcmV1({ token: targetToken, orderId, title, body })
+          : sendLegacyFcm({ token: targetToken, orderId, title, body }),
+      ),
+    );
+    const sent = results.filter((result) => result.status === "fulfilled").length;
+    const failed = results.length - sent;
 
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({
+      success: sent > 0,
+      sent,
+      failed,
+      total: targetTokens.length,
+      results,
+    });
   } catch (error) {
     return NextResponse.json(
       {

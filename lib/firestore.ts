@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   doc,
   serverTimestamp,
@@ -93,6 +94,7 @@ export async function createOrder(order: CreateOrderInput): Promise<CreateOrderR
         estimatedDeliveryMinutes: null,
         deliveryPerson: null,
         notificationToken: null,
+        notificationTokens: [],
         statusHistory: {
           pending: serverTimestamp(),
         },
@@ -125,6 +127,7 @@ export async function saveOrderNotificationToken(orderId: string, token: string)
 
   await updateDoc(doc(db, "orders", orderId), {
     notificationToken: token,
+    notificationTokens: arrayUnion(token),
     updatedAt: serverTimestamp(),
   });
 }
