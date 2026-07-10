@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { defaultMenuItems } from "@/lib/defaultMenu";
 import { adminOrderStatusOptions, formatStatus, orderStatusSequence, statusLabels, type OrderStatus } from "@/lib/orderStatus";
 import { useAuth } from "@/components/AuthProvider";
+import { setOrdersPaused, useOrderAvailability } from "@/components/OrderAvailability";
 
 type AdminOrder = {
   id: string;
@@ -74,6 +75,7 @@ const defaultMenuSeedVersion = 2;
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
+  const orderAvailability = useOrderAvailability();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [menuItems, setMenuItems] = useState<AdminMenuItem[]>([]);
   const [orderEdits, setOrderEdits] = useState<
@@ -89,6 +91,7 @@ export default function AdminDashboard() {
   const [menuForm, setMenuForm] = useState(initialMenuForm);
   const [activeTab, setActiveTab] = useState("orders");
   const [message, setMessage] = useState("");
+  const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [menuItemsLoaded, setMenuItemsLoaded] = useState(false);
 
   useEffect(() => {
@@ -271,6 +274,24 @@ export default function AdminDashboard() {
     (!db
       ? "Firebase is not configured. Add environment variables to load admin data."
       : "");
+
+  const toggleOrderAvailability = async () => {
+    setIsUpdatingAvailability(true);
+    setMessage("");
+
+    try {
+      await setOrdersPaused(!orderAvailability.isPaused);
+      setMessage(
+        orderAvailability.isPaused
+          ? "Online orders are accepting again."
+          : "Online orders are temporarily paused.",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update order availability.");
+    } finally {
+      setIsUpdatingAvailability(false);
+    }
+  };
 
   const getOrderEditValues = (order: AdminOrder) => {
     return orderEdits[order.id] ?? {
@@ -476,6 +497,22 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={toggleOrderAvailability}
+              disabled={isUpdatingAvailability || orderAvailability.isLoading}
+              className={`inline-flex h-12 items-center justify-center rounded-full px-6 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                orderAvailability.isPaused
+                  ? "bg-emerald-500 text-black hover:bg-emerald-300"
+                  : "bg-red-500 text-white hover:bg-red-400"
+              }`}
+            >
+              {isUpdatingAvailability
+                ? "Updating..."
+                : orderAvailability.isPaused
+                ? "Resume Orders"
+                : "Pause Orders"}
+            </button>
             <Link
               href="/admin/orders"
               className="inline-flex h-12 items-center justify-center rounded-full bg-[#F97316] px-6 text-sm font-black text-black transition hover:bg-[#E9B44C]"

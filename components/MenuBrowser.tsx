@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/CartContext";
+import { useOrderAvailability } from "@/components/OrderAvailability";
 import { db } from "@/lib/firebase";
 
 export type MenuCategory = {
@@ -123,6 +124,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
   const [healthySelections, setHealthySelections] = useState<string[]>([]);
   const [handledMenuAction, setHandledMenuAction] = useState("");
   const { addToCart, getItemQuantity, openCart, cartCount, cartTotal } = useCart();
+  const orderAvailability = useOrderAvailability();
 
   useEffect(() => {
     if (!db) {
@@ -297,7 +299,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
   };
 
   const addHealthyComboToCart = () => {
-    if (healthySelections.length !== healthyComboSize) {
+    if (orderAvailability.isPaused || healthySelections.length !== healthyComboSize) {
       return;
     }
 
@@ -319,6 +321,10 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
     categoryName: string;
     plan: "Weekly" | "Monthly";
   }) => {
+    if (orderAvailability.isPaused) {
+      return;
+    }
+
     const monthlyPrice = getMonthlyPrice(item.price);
     const priceValue = plan === "Monthly" ? monthlyPrice ?? item.priceValue : item.priceValue;
 
@@ -376,7 +382,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
       (item) => item.name.toLowerCase() === itemName.toLowerCase(),
     );
 
-    if (!matchedCategory || !matchedItem || matchedItem.isOutOfStock) {
+    if (!matchedCategory || !matchedItem || matchedItem.isOutOfStock || orderAvailability.isPaused) {
       setHandledMenuAction(actionKey);
       return;
     }
@@ -403,7 +409,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
       setHandledMenuAction(actionKey);
       router.replace(`/menu?category=${encodeURIComponent(matchedCategory.name)}`, { scroll: false });
     }
-  }, [addToCart, handledMenuAction, orderedCategories, router, searchParams]);
+  }, [addToCart, handledMenuAction, orderAvailability.isPaused, orderedCategories, router, searchParams]);
 
   return (
     <section className="mx-auto max-w-7xl px-3 pb-16 sm:px-8 sm:pb-20 lg:px-10">
@@ -447,6 +453,12 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
         </div>
       </div>
 
+      {orderAvailability.isPaused && (
+        <div className="mt-6 rounded-lg border border-orange-400/30 bg-orange-500/10 p-4 text-sm font-bold leading-6 text-orange-100">
+          {orderAvailability.message}
+        </div>
+      )}
+
       <div className="mt-8 flex flex-col gap-10 sm:mt-12 sm:gap-14">
         {visibleCategories.length > 0 ? (
           visibleCategories.map((category) => {
@@ -485,15 +497,15 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                     </div>
                     <button
                       type="button"
-                      disabled={healthySelections.length !== healthyComboSize}
                       onClick={addHealthyComboToCart}
+                      disabled={orderAvailability.isPaused || healthySelections.length !== healthyComboSize}
                       className={`h-10 rounded-full px-4 text-xs font-black transition sm:h-12 sm:px-6 sm:text-sm ${
-                        healthySelections.length === healthyComboSize
+                        !orderAvailability.isPaused && healthySelections.length === healthyComboSize
                           ? "bg-[#F97316] text-white hover:bg-[#E9B44C] hover:text-black"
                           : "cursor-not-allowed bg-white/10 text-zinc-500"
                       }`}
                     >
-                      Add combo for Rs. {healthyComboPrice}
+                      {orderAvailability.isPaused ? "Orders Paused" : `Add combo for Rs. ${healthyComboPrice}`}
                     </button>
                   </div>
                 </div>
@@ -508,6 +520,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                     isHealthyFood &&
                     !isHealthySelected &&
                     healthySelections.length >= healthyComboSize;
+                  const orderingDisabled = orderAvailability.isPaused || isOutOfStock || isHealthySelectionDisabled;
 
                   return (
                     <article
@@ -544,6 +557,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 type="button"
+                                disabled={orderAvailability.isPaused}
                                 onClick={() =>
                                   addSignaturePlanToCart({
                                     item,
@@ -551,12 +565,13 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                                     plan: "Weekly",
                                   })
                                 }
-                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#F97316] px-2 text-[11px] font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-4 sm:text-sm"
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#F97316] px-2 text-[11px] font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-zinc-500 disabled:hover:translate-y-0 sm:h-12 sm:px-4 sm:text-sm"
                               >
-                                Weekly
+                                {orderAvailability.isPaused ? "Paused" : "Weekly"}
                               </button>
                               <button
                                 type="button"
+                                disabled={orderAvailability.isPaused}
                                 onClick={() =>
                                   addSignaturePlanToCart({
                                     item,
@@ -564,17 +579,21 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                                     plan: "Monthly",
                                   })
                                 }
-                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#E9B44C]/40 px-2 text-[11px] font-black text-[#E9B44C] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black sm:h-12 sm:px-4 sm:text-sm"
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#E9B44C]/40 px-2 text-[11px] font-black text-[#E9B44C] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-zinc-500 disabled:hover:translate-y-0 sm:h-12 sm:px-4 sm:text-sm"
                               >
-                                Monthly
+                                {orderAvailability.isPaused ? "Paused" : "Monthly"}
                               </button>
                             </div>
                           </div>
                         ) : (
                         <button
                           type="button"
-                          disabled={isOutOfStock || isHealthySelectionDisabled}
+                          disabled={orderingDisabled}
                           onClick={() => {
+                            if (orderAvailability.isPaused) {
+                              return;
+                            }
+
                             if (isHealthyFood) {
                               toggleHealthySelection(item.name);
                               return;
@@ -588,7 +607,7 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                             });
                           }}
                           className={`mt-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-black transition duration-300 sm:h-12 sm:gap-2 sm:px-5 sm:text-sm ${
-                            isOutOfStock || isHealthySelectionDisabled
+                            orderingDisabled
                               ? "cursor-not-allowed bg-white/10 text-zinc-500"
                               : isHealthySelected
                               ? "bg-[#E9B44C] text-black hover:-translate-y-0.5"
@@ -598,6 +617,8 @@ export default function MenuBrowser({ categories }: { categories: MenuCategory[]
                           <CartIcon />
                           {isOutOfStock
                             ? "Not Available"
+                            : orderAvailability.isPaused
+                            ? "Orders Paused"
                             : isHealthyFood
                             ? isHealthySelected
                               ? "Selected"

@@ -18,6 +18,7 @@ import {
   statusLabels,
   type OrderStatus,
 } from "@/lib/orderStatus";
+import { setOrdersPaused, useOrderAvailability } from "@/components/OrderAvailability";
 
 type OrderHistory = Record<string, { toDate: () => Date }>;
 
@@ -51,6 +52,7 @@ type AdminOrder = {
 };
 
 export default function AdminOrderManagement() {
+  const orderAvailability = useOrderAvailability();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -67,6 +69,7 @@ export default function AdminOrderManagement() {
   >({});
   const [message, setMessage] = useState<string | null>(null);
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -166,6 +169,24 @@ export default function AdminOrderManagement() {
     }));
   };
 
+  const toggleOrderAvailability = async () => {
+    setIsUpdatingAvailability(true);
+    setMessage(null);
+
+    try {
+      await setOrdersPaused(!orderAvailability.isPaused);
+      setMessage(
+        orderAvailability.isPaused
+          ? "Online orders are accepting again."
+          : "Online orders are temporarily paused.",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update order availability.");
+    } finally {
+      setIsUpdatingAvailability(false);
+    }
+  };
+
   const saveOrderStatus = async (order: AdminOrder) => {
     const selectedStatus = statusEdits[order.id] ?? order.status ?? "pending";
 
@@ -255,12 +276,32 @@ export default function AdminOrderManagement() {
           <p className="text-sm font-black uppercase tracking-[0.24em] text-[#F97316]">
             Admin order management
           </p>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-            Manage customer orders and delivery status.
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300 sm:text-base">
-            Search and filter orders, update statuses, view customer details, and notify customers automatically when the order status changes.
-          </p>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+                Manage customer orders and delivery status.
+              </h1>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300 sm:text-base">
+                Search and filter orders, update statuses, view customer details, and notify customers automatically when the order status changes.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleOrderAvailability}
+              disabled={isUpdatingAvailability || orderAvailability.isLoading}
+              className={`h-12 shrink-0 rounded-full px-6 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                orderAvailability.isPaused
+                  ? "bg-emerald-500 text-black hover:bg-emerald-300"
+                  : "bg-red-500 text-white hover:bg-red-400"
+              }`}
+            >
+              {isUpdatingAvailability
+                ? "Updating..."
+                : orderAvailability.isPaused
+                ? "Resume Orders"
+                : "Pause Orders"}
+            </button>
+          </div>
         </div>
       </div>
 

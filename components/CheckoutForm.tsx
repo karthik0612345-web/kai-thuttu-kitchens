@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/CartContext";
 import OrderNotificationSubscriber from "@/components/OrderNotificationSubscriber";
+import { useOrderAvailability } from "@/components/OrderAvailability";
 import { createOrder, type CreateOrderInput } from "@/lib/firestore";
 
 const paymentOptions = [
@@ -21,6 +22,7 @@ const paymentOptions = [
 
 export default function CheckoutForm() {
   const { cartLines, cartCount, cartTotal, clearCart } = useCart();
+  const orderAvailability = useOrderAvailability();
   const [paymentOption, setPaymentOption] = useState<CreateOrderInput["paymentOption"]>("cod");
   const [orderStatus, setOrderStatus] = useState<{
     type: "success" | "error";
@@ -32,6 +34,15 @@ export default function CheckoutForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setOrderStatus(null);
+
+    if (orderAvailability.isPaused) {
+      setOrderStatus({
+        type: "error",
+        message: orderAvailability.message,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
@@ -194,6 +205,12 @@ export default function CheckoutForm() {
           </div>
         )}
 
+        {orderAvailability.isPaused && (
+          <div className="mt-5 rounded-lg border border-orange-400/30 bg-orange-500/10 p-4 text-sm font-bold leading-6 text-orange-100">
+            {orderAvailability.message}
+          </div>
+        )}
+
         {orderStatus && (
           <div
             className={`mt-5 rounded-lg border p-4 text-sm font-bold leading-6 ${
@@ -222,10 +239,10 @@ export default function CheckoutForm() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
-            disabled={cartCount === 0 || isSubmitting}
+            disabled={cartCount === 0 || isSubmitting || orderAvailability.isPaused}
             className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#F97316] disabled:hover:text-white"
           >
-            {isSubmitting ? "Saving Order..." : "Place Order"}
+            {orderAvailability.isPaused ? "Orders Paused" : isSubmitting ? "Saving Order..." : "Place Order"}
           </button>
           <Link
             href="/menu"

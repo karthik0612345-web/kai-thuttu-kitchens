@@ -21,7 +21,8 @@ service cloud.firestore {
     }
 
     match /settings/{settingId} {
-      allow read, create, update, delete: if request.auth != null;
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
     }
   }
 }
