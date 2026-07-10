@@ -30,6 +30,40 @@ export default function CheckoutForm() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [googleMapLocation, setGoogleMapLocation] = useState("");
+  const [locationStatus, setLocationStatus] = useState<string | null>(null);
+
+  const updatePhoneNumber = (value: string) => {
+    setPhoneNumber(value.replace(/\D/g, "").slice(0, 10));
+  };
+
+  const useCurrentLocation = () => {
+    setLocationStatus(null);
+
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("Location is not supported on this device. Paste your Google Maps link instead.");
+      return;
+    }
+
+    setLocationStatus("Getting your current location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setGoogleMapLocation(`https://www.google.com/maps?q=${latitude},${longitude}`);
+        setLocationStatus("Google Maps location added.");
+      },
+      () => {
+        setLocationStatus("Unable to get location. Please allow location access or paste your Google Maps link.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      },
+    );
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,8 +83,10 @@ export default function CheckoutForm() {
 
     const order: CreateOrderInput = {
       customerName: String(formData.get("customerName") ?? "").trim(),
-      phoneNumber: String(formData.get("phoneNumber") ?? "").trim(),
+      phoneNumber,
       deliveryAddress: String(formData.get("deliveryAddress") ?? "").trim(),
+      landmark: String(formData.get("landmark") ?? "").trim(),
+      googleMapLocation: googleMapLocation.trim(),
       paymentOption,
       items: cartLines.map((line) => ({
         name: line.name,
@@ -62,6 +98,15 @@ export default function CheckoutForm() {
       })),
       total: cartTotal,
     };
+
+    if (order.phoneNumber.length !== 10) {
+      setOrderStatus({
+        type: "error",
+        message: "Enter a valid 10 digit mobile number.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     if (order.items.length === 0) {
       setOrderStatus({
@@ -84,6 +129,8 @@ export default function CheckoutForm() {
           customerName: order.customerName,
           phoneNumber: order.phoneNumber,
           deliveryAddress: order.deliveryAddress,
+          landmark: order.landmark,
+          googleMapLocation: order.googleMapLocation,
           total: order.total,
           status: "pending",
           createdAt: new Date().toISOString(),
@@ -145,8 +192,12 @@ export default function CheckoutForm() {
               required
               name="phoneNumber"
               type="tel"
-              inputMode="tel"
-              placeholder="Enter mobile number"
+              inputMode="numeric"
+              pattern="[0-9]{10}"
+              maxLength={10}
+              value={phoneNumber}
+              onChange={(event) => updatePhoneNumber(event.target.value)}
+              placeholder="Enter 10 digit mobile number"
               className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
             />
           </label>
@@ -159,9 +210,50 @@ export default function CheckoutForm() {
               required
               name="deliveryAddress"
               rows={5}
-              placeholder="House number, street, area, landmark"
+              placeholder="House number, street, area"
               className="resize-none rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
             />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-bold text-amber-100">
+              Landmark
+            </span>
+            <input
+              required
+              name="landmark"
+              type="text"
+              placeholder="Nearby shop, apartment, gate, or street landmark"
+              className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+            />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-bold text-amber-100">
+              Google Maps location
+            </span>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <input
+                name="googleMapLocation"
+                type="url"
+                value={googleMapLocation}
+                onChange={(event) => setGoogleMapLocation(event.target.value)}
+                placeholder="Paste Google Maps link or use current location"
+                className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+              />
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                className="h-14 rounded-full border border-[#E9B44C]/50 px-5 text-sm font-black text-[#E9B44C] transition hover:bg-[#E9B44C] hover:text-black"
+              >
+                Use Location
+              </button>
+            </div>
+            {locationStatus && (
+              <span className="text-sm font-semibold text-zinc-300">
+                {locationStatus}
+              </span>
+            )}
           </label>
         </div>
 

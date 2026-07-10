@@ -29,6 +29,8 @@ type AdminOrder = {
     name?: string;
     phoneNumber?: string;
     deliveryAddress?: string;
+    landmark?: string;
+    googleMapLocation?: string;
   };
   orderedItems?: {
     name: string;
@@ -239,6 +241,7 @@ export default function AdminDashboard() {
         name: string;
         phoneNumber: string;
         address: string;
+        landmark: string;
         orders: number;
         spent: number;
       }
@@ -255,6 +258,7 @@ export default function AdminDashboard() {
         name: order.customerDetails?.name ?? "Customer",
         phoneNumber,
         address: order.customerDetails?.deliveryAddress ?? "",
+        landmark: order.customerDetails?.landmark ?? "",
         orders: 0,
         spent: 0,
       };
@@ -589,6 +593,21 @@ export default function AdminDashboard() {
                       <p className="mt-2 text-sm leading-6 text-zinc-300">
                         {order.customerDetails?.phoneNumber} | {order.customerDetails?.deliveryAddress}
                       </p>
+                      {order.customerDetails?.landmark && (
+                        <p className="mt-1 text-sm leading-6 text-zinc-300">
+                          Landmark: {order.customerDetails.landmark}
+                        </p>
+                      )}
+                      {order.customerDetails?.googleMapLocation && (
+                        <a
+                          href={order.customerDetails.googleMapLocation}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex text-sm font-bold text-[#E9B44C] hover:text-white"
+                        >
+                          Open Google Maps location
+                        </a>
+                      )}
                       <p className="mt-2 text-sm font-bold text-zinc-300">
                         Payment: {order.paymentMethod ?? "cod"} | Total: Rs. {order.total ?? 0}
                       </p>
@@ -879,6 +898,11 @@ export default function AdminDashboard() {
                 <p className="mt-2 text-sm leading-6 text-zinc-300">
                   {customer.phoneNumber} | {customer.address}
                 </p>
+                {customer.landmark && (
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">
+                    Landmark: {customer.landmark}
+                  </p>
+                )}
                 <p className="mt-2 text-sm font-bold text-[#E9B44C]">
                   {customer.orders} orders | Rs. {customer.spent} spent
                 </p>

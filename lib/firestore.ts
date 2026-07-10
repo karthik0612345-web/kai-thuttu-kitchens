@@ -34,6 +34,8 @@ export type CreateOrderInput = {
   customerName: string;
   phoneNumber: string;
   deliveryAddress: string;
+  landmark: string;
+  googleMapLocation: string;
   paymentOption: "cod" | "razorpay";
   items: OrderItem[];
   total: number;
@@ -85,6 +87,8 @@ export async function createOrder(order: CreateOrderInput): Promise<CreateOrderR
           name: order.customerName,
           phoneNumber: order.phoneNumber,
           deliveryAddress: order.deliveryAddress,
+          landmark: order.landmark,
+          googleMapLocation: order.googleMapLocation,
         },
         orderedItems: order.items,
         paymentMethod: order.paymentOption,

@@ -15,6 +15,8 @@ type TrackedOrder = {
     name?: string;
     phoneNumber?: string;
     deliveryAddress?: string;
+    landmark?: string;
+    googleMapLocation?: string;
   };
   orderedItems?: {
     name: string;
@@ -40,6 +42,8 @@ type RecentOrderSummary = {
   customerName?: string;
   phoneNumber?: string;
   deliveryAddress?: string;
+  landmark?: string;
+  googleMapLocation?: string;
   total?: number;
   status?: string;
   createdAt?: string;
@@ -140,6 +144,8 @@ export default function OrderTrackingClient() {
       customerName: order.customerDetails?.name,
       phoneNumber: order.customerDetails?.phoneNumber,
       deliveryAddress: order.customerDetails?.deliveryAddress,
+      landmark: order.customerDetails?.landmark,
+      googleMapLocation: order.customerDetails?.googleMapLocation,
       total: order.total,
       status: order.status,
       createdAt: order.createdAt?.toDate().toISOString(),
@@ -344,6 +350,21 @@ export default function OrderTrackingClient() {
                 <p className="text-sm text-zinc-400">
                   {order.customerDetails?.deliveryAddress}
                 </p>
+                {order.customerDetails?.landmark && (
+                  <p className="text-sm text-zinc-400">
+                    Landmark: {order.customerDetails.landmark}
+                  </p>
+                )}
+                {order.customerDetails?.googleMapLocation && (
+                  <a
+                    href={order.customerDetails.googleMapLocation}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-fit text-sm font-bold text-[#E9B44C] hover:text-white"
+                  >
+                    Open Google Maps location
+                  </a>
+                )}
               </div>
 
               <div className="space-y-6">
@@ -459,6 +480,11 @@ export default function OrderTrackingClient() {
                 <p className="mt-2 text-sm text-zinc-300">
                   {order.customerDetails?.deliveryAddress}
                 </p>
+                {order.customerDetails?.landmark && (
+                  <p className="mt-2 text-sm text-zinc-300">
+                    Landmark: {order.customerDetails.landmark}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3 rounded-3xl bg-black/30 p-5">

@@ -29,6 +29,8 @@ type AdminOrder = {
     name?: string;
     phoneNumber?: string;
     deliveryAddress?: string;
+    landmark?: string;
+    googleMapLocation?: string;
   };
   orderedItems?: {
     name: string;
@@ -391,6 +393,21 @@ export default function AdminOrderManagement() {
                     <p className="text-sm text-zinc-400">
                       Delivery address: <span className="font-semibold text-white">{order.customerDetails?.deliveryAddress ?? "Not provided"}</span>
                     </p>
+                    {order.customerDetails?.landmark && (
+                      <p className="text-sm text-zinc-400">
+                        Landmark: <span className="font-semibold text-white">{order.customerDetails.landmark}</span>
+                      </p>
+                    )}
+                    {order.customerDetails?.googleMapLocation && (
+                      <a
+                        href={order.customerDetails.googleMapLocation}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex text-sm font-bold text-[#E9B44C] hover:text-white"
+                      >
+                        Open Google Maps location
+                      </a>
+                    )}
                     {(order.deliveryPerson?.name || order.deliveryPerson?.phoneNumber) && (
                       <p className="text-sm text-zinc-400">
                         Delivery partner: <span className="font-semibold text-white">{order.deliveryPerson?.name ?? "Not assigned"}</span>
