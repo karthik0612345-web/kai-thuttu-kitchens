@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   collection,
@@ -462,13 +461,6 @@ export default function DeliveryDashboard() {
                               ? "Updating..."
                               : "Mark as delivered"}
                       </button>
-
-                      <Link
-                        href={`/order-tracking?orderId=${encodeURIComponent(order.orderId)}`}
-                        className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-6 text-sm font-black text-zinc-200 transition hover:border-[#E9B44C] hover:text-[#E9B44C]"
-                      >
-                        View tracking
-                      </Link>
                     </div>
                   </article>
                 );
