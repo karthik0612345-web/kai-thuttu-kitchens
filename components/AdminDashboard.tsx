@@ -15,7 +15,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { db } from "@/lib/firebase";
 import { defaultMenuItems } from "@/lib/defaultMenu";
 import { adminOrderStatusOptions, formatStatus, orderStatusSequence, statusLabels, type OrderStatus } from "@/lib/orderStatus";
@@ -75,6 +75,7 @@ const initialMenuForm = {
   isOutOfStock: false,
 };
 const defaultMenuSeedVersion = 2;
+type AudioContextConstructor = typeof AudioContext;
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -96,6 +97,71 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [menuItemsLoaded, setMenuItemsLoaded] = useState(false);
+  const [isOrderSoundEnabled, setIsOrderSoundEnabled] = useState(false);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const hasLoadedOrdersRef = useRef(false);
+  const orderSoundEnabledRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playNewOrderSound = async () => {
+    if (typeof window === "undefined" || !orderSoundEnabledRef.current) {
+      return;
+    }
+
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: AudioContextConstructor })
+        .webkitAudioContext;
+
+    if (!AudioContextClass) {
+      return;
+    }
+
+    const audioContext =
+      audioContextRef.current ?? new AudioContextClass({ latencyHint: "interactive" });
+    audioContextRef.current = audioContext;
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    const now = audioContext.currentTime;
+    const masterGain = audioContext.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.9, now + 0.03);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+    masterGain.connect(audioContext.destination);
+
+    [0, 0.45, 0.9, 1.35].forEach((offset) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(880, now + offset);
+      oscillator.frequency.setValueAtTime(1175, now + offset + 0.14);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.75, now + offset + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.34);
+      oscillator.connect(gain);
+      gain.connect(masterGain);
+      oscillator.start(now + offset);
+      oscillator.stop(now + offset + 0.38);
+    });
+
+    navigator.vibrate?.([350, 120, 350]);
+  };
+
+  const enableOrderSound = async () => {
+    orderSoundEnabledRef.current = true;
+    setIsOrderSoundEnabled(true);
+
+    try {
+      await playNewOrderSound();
+      setMessage("New order sound enabled. Keep this admin page open to hear alerts.");
+    } catch {
+      setMessage("Sound could not start. Click Enable Sound again and allow browser audio.");
+    }
+  };
 
   useEffect(() => {
     if (!db) {
@@ -104,6 +170,20 @@ export default function AdminDashboard() {
 
     const ordersQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      const nextOrderIds = new Set(snapshot.docs.map((orderDoc) => orderDoc.id));
+      const newOrderCount = snapshot.docs.filter(
+        (orderDoc) => !knownOrderIdsRef.current.has(orderDoc.id),
+      ).length;
+
+      if (hasLoadedOrdersRef.current && newOrderCount > 0) {
+        playNewOrderSound().catch((error) => {
+          console.error("Unable to play new order sound:", error);
+        });
+      }
+
+      knownOrderIdsRef.current = nextOrderIds;
+      hasLoadedOrdersRef.current = true;
+
       setOrders(
         snapshot.docs.map((orderDoc) => ({
           id: orderDoc.id,
@@ -502,6 +582,17 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={enableOrderSound}
+              className={`inline-flex h-12 items-center justify-center rounded-full px-6 text-sm font-black transition ${
+                isOrderSoundEnabled
+                  ? "bg-emerald-500 text-black hover:bg-emerald-300"
+                  : "bg-[#E9B44C] text-black hover:bg-[#F97316] hover:text-white"
+              }`}
+            >
+              {isOrderSoundEnabled ? "Sound Enabled" : "Enable Sound"}
+            </button>
             <button
               type="button"
               onClick={toggleOrderAvailability}
