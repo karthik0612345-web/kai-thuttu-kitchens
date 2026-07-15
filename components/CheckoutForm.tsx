@@ -61,6 +61,13 @@ type RazorpayVerifyResponse = {
   paymentStatus: string;
 };
 
+type LocationSearchResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+};
+
 const paymentOptions = [
   {
     id: "cod",
@@ -135,6 +142,9 @@ export default function CheckoutForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [googleMapLocation, setGoogleMapLocation] = useState("");
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationSearchResults, setLocationSearchResults] = useState<LocationSearchResult[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const customerCoordinates = parseCoordinatesFromMapsLink(googleMapLocation);
   const currentServiceability = checkDeliveryZone(
     deliveryZone.zone,
@@ -166,6 +176,71 @@ export default function CheckoutForm() {
         deliveryZone.zone,
         parseCoordinatesFromMapsLink(value),
       ).message,
+    );
+  };
+
+  const searchMapLocation = async () => {
+    const searchText = locationSearch.trim();
+
+    if (!searchText) {
+      setLocationStatus("Enter an area, apartment, road, or landmark to search.");
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    setLocationStatus("Searching location...");
+    setLocationSearchResults([]);
+
+    try {
+      const query = `${searchText}, Bengaluru, Karnataka, India`;
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to search location right now.");
+      }
+
+      const results = (await response.json()) as LocationSearchResult[];
+      setLocationSearchResults(results);
+      setLocationStatus(
+        results.length > 0
+          ? "Select the correct location from the search results."
+          : "No location found. Try adding area, road name, or nearby landmark.",
+      );
+    } catch (error) {
+      setLocationStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to search location right now.",
+      );
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const selectSearchedLocation = (result: LocationSearchResult) => {
+    const latitude = Number(result.lat);
+    const longitude = Number(result.lon);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setLocationStatus("This location result is invalid. Please choose another result.");
+      return;
+    }
+
+    const nextLocation = `https://www.google.com/maps?q=${latitude},${longitude}`;
+    setGoogleMapLocation(nextLocation);
+    setLocationSearch(result.display_name);
+    setLocationSearchResults([]);
+
+    const serviceability = checkDeliveryZone(deliveryZone.zone, {
+      latitude,
+      longitude,
+    });
+    setLocationStatus(
+      deliveryZone.zone.isEnabled
+        ? serviceability.message
+        : "Google Maps location added.",
     );
   };
 
@@ -530,10 +605,9 @@ export default function CheckoutForm() {
 
           <label className="grid gap-2">
             <span className="text-sm font-bold text-amber-100">
-              Landmark
+              Landmark <span className="text-zinc-400">(optional)</span>
             </span>
             <input
-              required
               name="landmark"
               type="text"
               placeholder="Nearby shop, apartment, gate, or street landmark"
@@ -547,12 +621,49 @@ export default function CheckoutForm() {
             </span>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <input
+                type="search"
+                value={locationSearch}
+                onChange={(event) => setLocationSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void searchMapLocation();
+                  }
+                }}
+                placeholder="Search area, apartment, road, or landmark"
+                className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+              />
+              <button
+                type="button"
+                onClick={() => void searchMapLocation()}
+                disabled={isSearchingLocation}
+                className="h-14 rounded-full border border-[#E9B44C]/50 px-5 text-sm font-black text-[#E9B44C] transition hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSearchingLocation ? "Searching..." : "Search Map"}
+              </button>
+            </div>
+            {locationSearchResults.length > 0 && (
+              <div className="grid gap-2 rounded-lg border border-white/10 bg-black/35 p-3">
+                {locationSearchResults.map((result) => (
+                  <button
+                    key={result.place_id}
+                    type="button"
+                    onClick={() => selectSearchedLocation(result)}
+                    className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-semibold leading-6 text-zinc-200 transition hover:border-[#E9B44C] hover:text-[#E9B44C]"
+                  >
+                    {result.display_name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <input
                 required={deliveryZone.zone.isEnabled}
                 name="googleMapLocation"
                 type="url"
                 value={googleMapLocation}
                 onChange={(event) => updateGoogleMapLocation(event.target.value)}
-                placeholder="Paste Google Maps link or use current location"
+                placeholder="Selected Google Maps link, paste link, or use current location"
                 className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
               />
               <button
