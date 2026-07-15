@@ -6,6 +6,8 @@ import { useCart } from "@/components/CartContext";
 import OrderNotificationSubscriber from "@/components/OrderNotificationSubscriber";
 import { useOrderAvailability } from "@/components/OrderAvailability";
 import { createOrder, type CreateOrderInput } from "@/lib/firestore";
+import { useDeliveryZone } from "@/components/DeliveryZoneSettings";
+import { checkDeliveryZone, parseCoordinatesFromMapsLink } from "@/lib/deliveryZone";
 
 type RazorpaySuccessResponse = {
   razorpay_payment_id: string;
@@ -117,6 +119,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 export default function CheckoutForm() {
   const { cartLines, cartCount, cartTotal, clearCart } = useCart();
   const orderAvailability = useOrderAvailability();
+  const deliveryZone = useDeliveryZone();
   const [paymentOption, setPaymentOption] = useState<CreateOrderInput["paymentOption"]>("cod");
   const [orderStatus, setOrderStatus] = useState<{
     type: "success" | "error";
@@ -130,6 +133,27 @@ export default function CheckoutForm() {
 
   const updatePhoneNumber = (value: string) => {
     setPhoneNumber(value.replace(/\D/g, "").slice(0, 10));
+  };
+
+  const updateGoogleMapLocation = (value: string) => {
+    setGoogleMapLocation(value);
+
+    if (!deliveryZone.zone.isEnabled) {
+      setLocationStatus(null);
+      return;
+    }
+
+    if (!value.trim()) {
+      setLocationStatus("Add your exact Google Maps location to check delivery availability.");
+      return;
+    }
+
+    setLocationStatus(
+      checkDeliveryZone(
+        deliveryZone.zone,
+        parseCoordinatesFromMapsLink(value),
+      ).message,
+    );
   };
 
   const useCurrentLocation = () => {
@@ -146,7 +170,15 @@ export default function CheckoutForm() {
       (position) => {
         const { latitude, longitude } = position.coords;
         setGoogleMapLocation(`https://www.google.com/maps?q=${latitude},${longitude}`);
-        setLocationStatus("Google Maps location added.");
+        const serviceability = checkDeliveryZone(deliveryZone.zone, {
+          latitude,
+          longitude,
+        });
+        setLocationStatus(
+          deliveryZone.zone.isEnabled
+            ? serviceability.message
+            : "Google Maps location added.",
+        );
       },
       () => {
         setLocationStatus("Unable to get location. Please allow location access or paste your Google Maps link.");
@@ -340,6 +372,18 @@ export default function CheckoutForm() {
       return;
     }
 
+    const customerCoordinates = parseCoordinatesFromMapsLink(order.googleMapLocation);
+    const serviceability = checkDeliveryZone(deliveryZone.zone, customerCoordinates);
+
+    if (!serviceability.canDeliver) {
+      setOrderStatus({
+        type: "error",
+        message: serviceability.message,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const { orderId } = await createOrder(order);
 
@@ -455,10 +499,11 @@ export default function CheckoutForm() {
             </span>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <input
+                required={deliveryZone.zone.isEnabled}
                 name="googleMapLocation"
                 type="url"
                 value={googleMapLocation}
-                onChange={(event) => setGoogleMapLocation(event.target.value)}
+                onChange={(event) => updateGoogleMapLocation(event.target.value)}
                 placeholder="Paste Google Maps link or use current location"
                 className="h-14 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
               />
@@ -471,8 +516,28 @@ export default function CheckoutForm() {
               </button>
             </div>
             {locationStatus && (
-              <span className="text-sm font-semibold text-zinc-300">
+              <span className={`text-sm font-semibold ${
+                locationStatus.includes("not delivered") ||
+                locationStatus.includes("Add your exact")
+                  ? "text-orange-200"
+                  : "text-zinc-300"
+              }`}>
                 {locationStatus}
+              </span>
+            )}
+            {deliveryZone.zone.isEnabled && googleMapLocation && !locationStatus && (
+              <span className="text-sm font-semibold text-zinc-300">
+                {
+                  checkDeliveryZone(
+                    deliveryZone.zone,
+                    parseCoordinatesFromMapsLink(googleMapLocation),
+                  ).message
+                }
+              </span>
+            )}
+            {deliveryZone.zone.isEnabled && !googleMapLocation && (
+              <span className="text-sm font-semibold text-orange-200">
+                Exact Google Maps location is required to check delivery availability.
               </span>
             )}
           </label>

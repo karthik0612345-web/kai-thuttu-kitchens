@@ -21,6 +21,7 @@ import { defaultMenuItems } from "@/lib/defaultMenu";
 import { adminOrderStatusOptions, formatStatus, orderStatusSequence, statusLabels, type OrderStatus } from "@/lib/orderStatus";
 import { useAuth } from "@/components/AuthProvider";
 import { setOrdersPaused, useOrderAvailability } from "@/components/OrderAvailability";
+import DeliveryZoneAdmin from "@/components/DeliveryZoneSettings";
 
 type AdminOrder = {
   id: string;
@@ -559,7 +560,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="mt-8 flex gap-2 overflow-x-auto">
-          {["orders", "menu", "analytics", "customers"].map((tab) => (
+          {["orders", "menu", "delivery", "analytics", "customers"].map((tab) => (
             <button
               key={tab}
               type="button"
@@ -877,6 +878,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === "delivery" && <DeliveryZoneAdmin />}
 
         {activeTab === "analytics" && (
           <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.06] p-6">
