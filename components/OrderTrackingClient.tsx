@@ -50,6 +50,12 @@ type RecentOrderSummary = {
 };
 
 const statusSteps = orderStatusSequence;
+const googleFeedbackUrl =
+  process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL ||
+  "https://www.google.com/search?q=Kai+Thuttu+Kitchens+Google+review";
+const googleMapsUrl =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_URL ||
+  "https://www.google.com/maps/search/?api=1&query=Kai%20Thuttu%20Kitchens";
 
 async function showOrderNotification(title: string, options: NotificationOptions) {
   if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
@@ -245,6 +251,8 @@ export default function OrderTrackingClient() {
 
     return deliveryDate;
   }, [order]);
+  const isDelivered = order?.status === "delivered";
+  const deliveredAt = statusHistoryMap.get("delivered") ?? order?.updatedAt?.toDate?.() ?? null;
 
   return (
     <main className="min-h-screen bg-[#111111] text-white">
@@ -266,37 +274,39 @@ export default function OrderTrackingClient() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10">
-        <form onSubmit={onSubmit} className="grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
-          <div className="grid gap-4">
-            <label className="grid gap-2 text-sm font-bold text-amber-100">
-              Order ID
-              <input
-                value={orderLookup}
-                onChange={(event) => setOrderLookup(event.target.value)}
-                placeholder="KTK-..."
-                className="h-14 rounded-xl border border-white/10 bg-black/40 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
-              />
-            </label>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="submit"
-              className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black"
-            >
-              Track order
-            </button>
-            <p className="text-sm text-zinc-400">
-              Use the Order ID shown after checkout for instant real-time tracking.
-            </p>
-          </div>
-          {error && (
-            <p className="rounded-2xl border border-orange-400/25 bg-orange-500/10 px-4 py-3 text-sm font-bold text-orange-100">
-              {error}
-            </p>
-          )}
-        </form>
+        {!isDelivered && (
+          <form onSubmit={onSubmit} className="grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+            <div className="grid gap-4">
+              <label className="grid gap-2 text-sm font-bold text-amber-100">
+                Order ID
+                <input
+                  value={orderLookup}
+                  onChange={(event) => setOrderLookup(event.target.value)}
+                  placeholder="KTK-..."
+                  className="h-14 rounded-xl border border-white/10 bg-black/40 px-4 text-white outline-none transition placeholder:text-zinc-500 focus:border-[#E9B44C] focus:ring-4 focus:ring-[#E9B44C]/10"
+                />
+              </label>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="submit"
+                className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E9B44C] hover:text-black"
+              >
+                Track order
+              </button>
+              <p className="text-sm text-zinc-400">
+                Use the Order ID shown after checkout for instant real-time tracking.
+              </p>
+            </div>
+            {error && (
+              <p className="rounded-2xl border border-orange-400/25 bg-orange-500/10 px-4 py-3 text-sm font-bold text-orange-100">
+                {error}
+              </p>
+            )}
+          </form>
+        )}
 
-        {recentOrders.length > 0 && (
+        {!isDelivered && recentOrders.length > 0 && (
           <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -336,7 +346,53 @@ export default function OrderTrackingClient() {
           </div>
         )}
 
-        {order && (
+        {order && isDelivered && (
+          <div className="mx-auto mt-8 max-w-3xl rounded-3xl border border-emerald-400/25 bg-emerald-500/10 p-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-10">
+            <p className="text-sm font-black uppercase tracking-[0.24em] text-emerald-300">
+              Delivered
+            </p>
+            <h2 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+              Order completed
+            </h2>
+            <div className="mx-auto mt-6 w-fit rounded-2xl border border-white/10 bg-black/35 px-6 py-5">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#E9B44C]">
+                Order ID
+              </p>
+              <p className="mt-2 text-2xl font-black text-white">
+                {order.orderId}
+              </p>
+            </div>
+            <p className="mx-auto mt-5 max-w-xl text-base font-semibold leading-7 text-zinc-200">
+              Your order has been delivered. Thank you for choosing Kai Thuttu
+              Kitchens.
+            </p>
+            {deliveredAt && (
+              <p className="mt-3 text-sm font-semibold text-zinc-400">
+                Delivered on {deliveredAt.toLocaleString()}
+              </p>
+            )}
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <a
+                href={googleFeedbackUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-6 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+              >
+                Give Feedback
+              </a>
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-14 items-center justify-center rounded-full border border-[#E9B44C]/50 px-6 text-sm font-black text-[#E9B44C] transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+              >
+                Open Google Map
+              </a>
+            </div>
+          </div>
+        )}
+
+        {order && !isDelivered && (
           <div className="mt-8 grid gap-8 lg:grid-cols-[0.95fr_0.55fr]">
             <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
               <div className="grid gap-2">
