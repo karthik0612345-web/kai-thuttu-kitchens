@@ -433,6 +433,41 @@ export default function CheckoutForm() {
     }
   };
 
+  if (createdOrderId) {
+    return (
+      <section className="mx-auto max-w-3xl px-5 pb-20 sm:px-8 lg:px-10">
+        <div className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-10">
+          <p className="text-sm font-black uppercase tracking-[0.24em] text-emerald-300">
+            Order placed
+          </p>
+          <h2 className="mt-4 text-3xl font-black text-white sm:text-5xl">
+            Thank you for your order
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-7 text-zinc-200">
+            Your order has been sent to Kai Thuttu Kitchens. Track the live
+            status from kitchen confirmation to delivery.
+          </p>
+          <div className="mx-auto mt-6 w-fit rounded-lg border border-white/10 bg-black/35 px-5 py-4">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#E9B44C]">
+              Order ID
+            </p>
+            <p className="mt-2 text-2xl font-black text-white">
+              {createdOrderId}
+            </p>
+          </div>
+          <Link
+            href={`/order-tracking?orderId=${createdOrderId}`}
+            className="mt-8 inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-10 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black"
+          >
+            Track Order
+          </Link>
+        </div>
+
+        <OrderNotificationSubscriber orderId={createdOrderId} />
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-20 sm:px-8 lg:grid-cols-[1fr_0.78fr] lg:px-10">
       <form
