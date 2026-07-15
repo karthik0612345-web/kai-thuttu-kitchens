@@ -75,7 +75,7 @@ const initialMenuForm = {
   isOutOfStock: false,
 };
 const defaultMenuSeedVersion = 2;
-type AudioContextConstructor = typeof AudioContext;
+const newOrderSoundPath = "/zomato_ring_3.mp3";
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -101,53 +101,20 @@ export default function AdminDashboard() {
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const hasLoadedOrdersRef = useRef(false);
   const orderSoundEnabledRef = useRef(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const orderSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const playNewOrderSound = async () => {
     if (typeof window === "undefined" || !orderSoundEnabledRef.current) {
       return;
     }
 
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as Window & { webkitAudioContext?: AudioContextConstructor })
-        .webkitAudioContext;
-
-    if (!AudioContextClass) {
-      return;
-    }
-
-    const audioContext =
-      audioContextRef.current ?? new AudioContextClass({ latencyHint: "interactive" });
-    audioContextRef.current = audioContext;
-
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
-
-    const now = audioContext.currentTime;
-    const masterGain = audioContext.createGain();
-    masterGain.gain.setValueAtTime(0.0001, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.9, now + 0.03);
-    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
-    masterGain.connect(audioContext.destination);
-
-    [0, 0.45, 0.9, 1.35].forEach((offset) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-
-      oscillator.type = "square";
-      oscillator.frequency.setValueAtTime(880, now + offset);
-      oscillator.frequency.setValueAtTime(1175, now + offset + 0.14);
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.75, now + offset + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.34);
-      oscillator.connect(gain);
-      gain.connect(masterGain);
-      oscillator.start(now + offset);
-      oscillator.stop(now + offset + 0.38);
-    });
-
+    const audio = orderSoundRef.current ?? new Audio(newOrderSoundPath);
+    orderSoundRef.current = audio;
+    audio.loop = false;
+    audio.volume = 1;
+    audio.pause();
+    audio.currentTime = 0;
+    await audio.play();
     navigator.vibrate?.([350, 120, 350]);
   };
 
