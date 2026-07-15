@@ -7,7 +7,12 @@ import OrderNotificationSubscriber from "@/components/OrderNotificationSubscribe
 import { useOrderAvailability } from "@/components/OrderAvailability";
 import { createOrder, type CreateOrderInput } from "@/lib/firestore";
 import { useDeliveryZone } from "@/components/DeliveryZoneSettings";
-import { checkDeliveryZone, parseCoordinatesFromMapsLink } from "@/lib/deliveryZone";
+import {
+  checkDeliveryZone,
+  freeDeliveryRadiusKm,
+  getDeliveryChargeMessage,
+  parseCoordinatesFromMapsLink,
+} from "@/lib/deliveryZone";
 
 type RazorpaySuccessResponse = {
   razorpay_payment_id: string;
@@ -130,6 +135,14 @@ export default function CheckoutForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [googleMapLocation, setGoogleMapLocation] = useState("");
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
+  const customerCoordinates = parseCoordinatesFromMapsLink(googleMapLocation);
+  const currentServiceability = checkDeliveryZone(
+    deliveryZone.zone,
+    customerCoordinates,
+  );
+  const deliveryChargeMessage = getDeliveryChargeMessage(
+    currentServiceability.distanceKm,
+  );
 
   const updatePhoneNumber = (value: string) => {
     setPhoneNumber(value.replace(/\D/g, "").slice(0, 10));
@@ -527,14 +540,21 @@ export default function CheckoutForm() {
             )}
             {deliveryZone.zone.isEnabled && googleMapLocation && !locationStatus && (
               <span className="text-sm font-semibold text-zinc-300">
-                {
-                  checkDeliveryZone(
-                    deliveryZone.zone,
-                    parseCoordinatesFromMapsLink(googleMapLocation),
-                  ).message
-                }
+                {currentServiceability.message}
               </span>
             )}
+            {deliveryZone.zone.isEnabled &&
+              googleMapLocation &&
+              currentServiceability.canDeliver && (
+                <span className={`rounded-lg border px-4 py-3 text-sm font-black ${
+                  currentServiceability.distanceKm !== null &&
+                  currentServiceability.distanceKm <= freeDeliveryRadiusKm
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                    : "border-[#E9B44C]/30 bg-[#E9B44C]/10 text-[#E9B44C]"
+                }`}>
+                  {deliveryChargeMessage}
+                </span>
+              )}
             {deliveryZone.zone.isEnabled && !googleMapLocation && (
               <span className="text-sm font-semibold text-orange-200">
                 Exact Google Maps location is required to check delivery availability.
@@ -690,7 +710,11 @@ export default function CheckoutForm() {
           </div>
           <div className="mt-3 flex justify-between text-sm font-bold text-zinc-300">
             <span>Delivery</span>
-            <span>Calculated on confirmation</span>
+            <span className="max-w-[14rem] text-right">
+              {deliveryZone.zone.isEnabled && currentServiceability.canDeliver
+                ? deliveryChargeMessage
+                : "Calculated on confirmation"}
+            </span>
           </div>
           <div className="mt-5 flex justify-between text-xl font-black text-white">
             <span>Total</span>

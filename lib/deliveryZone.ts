@@ -16,6 +16,7 @@ export const defaultDeliveryZone: DeliveryZone = {
   centerLongitude: 77.364,
   radiusKm: 5,
 };
+export const freeDeliveryRadiusKm = 3;
 
 export function parseCoordinatesFromMapsLink(value: string): Coordinates | null {
   const text = value.trim();
@@ -113,4 +114,16 @@ export function checkDeliveryZone(
       ? `Delivery available. Your location is ${distanceKm.toFixed(1)} km from our kitchen range center.`
       : `Sorry, food is not delivered to this location. Your location is ${distanceKm.toFixed(1)} km away, outside our ${zone.radiusKm} km delivery range.`,
   };
+}
+
+export function getDeliveryChargeMessage(distanceKm: number | null) {
+  if (distanceKm === null) {
+    return "Delivery charge will be confirmed after checking your location.";
+  }
+
+  if (distanceKm <= freeDeliveryRadiusKm) {
+    return `Free delivery within ${freeDeliveryRadiusKm} km.`;
+  }
+
+  return `Porter charges will apply because your location is more than ${freeDeliveryRadiusKm} km from our kitchen.`;
 }
