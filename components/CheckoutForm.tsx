@@ -7,6 +7,53 @@ import OrderNotificationSubscriber from "@/components/OrderNotificationSubscribe
 import { useOrderAvailability } from "@/components/OrderAvailability";
 import { createOrder, type CreateOrderInput } from "@/lib/firestore";
 
+type RazorpaySuccessResponse = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  image?: string;
+  order_id: string;
+  prefill: {
+    name: string;
+    contact: string;
+  };
+  notes: Record<string, string>;
+  theme: {
+    color: string;
+  };
+  modal: {
+    ondismiss: () => void;
+  };
+  handler: (response: RazorpaySuccessResponse) => void;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => { open: () => void };
+  }
+}
+
+type RazorpayCreateOrderResponse = {
+  keyId: string;
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+};
+
+type RazorpayVerifyResponse = {
+  success: boolean;
+  orderId: string;
+  paymentStatus: string;
+};
+
 const paymentOptions = [
   {
     id: "cod",
@@ -19,6 +66,53 @@ const paymentOptions = [
     description: "Pay online securely with UPI, cards, wallets, or netbanking.",
   },
 ] as const;
+
+const razorpayCheckoutScript = "https://checkout.razorpay.com/v1/checkout.js";
+
+function loadRazorpayCheckout() {
+  return new Promise<void>((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Razorpay checkout can only open in the browser."));
+      return;
+    }
+
+    if (window.Razorpay) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${razorpayCheckoutScript}"]`,
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Unable to load Razorpay checkout.")),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = razorpayCheckoutScript;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Razorpay checkout."));
+    document.body.appendChild(script);
+  });
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error ?? "Request failed.");
+  }
+
+  return result as T;
+}
 
 export default function CheckoutForm() {
   const { cartLines, cartCount, cartTotal, clearCart } = useCart();
@@ -63,6 +157,135 @@ export default function CheckoutForm() {
         maximumAge: 0,
       },
     );
+  };
+
+  const saveRecentOrder = (order: CreateOrderInput, orderId: string) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const savedOrders = window.localStorage.getItem("customerRecentOrders");
+    const existingOrders = savedOrders ? JSON.parse(savedOrders) : [];
+    const recentOrder = {
+      orderId,
+      customerName: order.customerName,
+      phoneNumber: order.phoneNumber,
+      deliveryAddress: order.deliveryAddress,
+      landmark: order.landmark,
+      googleMapLocation: order.googleMapLocation,
+      total: order.total,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    const nextOrders = [
+      recentOrder,
+      ...existingOrders.filter(
+        (entry: { orderId: string }) => entry.orderId !== orderId,
+      ),
+    ].slice(0, 5);
+    window.localStorage.setItem("customerRecentOrders", JSON.stringify(nextOrders));
+  };
+
+  const finishSuccessfulOrder = (
+    order: CreateOrderInput,
+    orderId: string,
+    message: string,
+  ) => {
+    clearCart();
+    setCreatedOrderId(orderId);
+    saveRecentOrder(order, orderId);
+    setOrderStatus({
+      type: "success",
+      message,
+    });
+  };
+
+  const openRazorpayPayment = async (
+    order: CreateOrderInput,
+    appOrderId: string,
+  ) => {
+    setOrderStatus({
+      type: "success",
+      message: "Opening secure Razorpay checkout...",
+    });
+
+    const createResponse = await fetch("/api/razorpay/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        appOrderId,
+        amount: order.total,
+        customerName: order.customerName,
+        phoneNumber: order.phoneNumber,
+      }),
+    });
+    const razorpayOrder = await readJsonResponse<RazorpayCreateOrderResponse>(
+      createResponse,
+    );
+
+    await loadRazorpayCheckout();
+
+    if (!window.Razorpay) {
+      throw new Error("Razorpay checkout is not available. Please try again.");
+    }
+
+    const paymentResponse = await new Promise<RazorpaySuccessResponse>(
+      (resolve, reject) => {
+        const RazorpayCheckout = window.Razorpay;
+
+        if (!RazorpayCheckout) {
+          reject(new Error("Razorpay checkout is not available. Please try again."));
+          return;
+        }
+
+        const checkout = new RazorpayCheckout({
+          key: razorpayOrder.keyId,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          name: "Kai Thuttu Kitchens",
+          description: `Order ${appOrderId}`,
+          image: "/kai-thuttu-logo.jpeg",
+          order_id: razorpayOrder.razorpayOrderId,
+          prefill: {
+            name: order.customerName,
+            contact: `+91${order.phoneNumber}`,
+          },
+          notes: {
+            appOrderId,
+          },
+          theme: {
+            color: "#F97316",
+          },
+          modal: {
+            ondismiss: () => {
+              reject(
+                new Error(
+                  "Razorpay payment window was closed before payment was completed.",
+                ),
+              );
+            },
+          },
+          handler: (response) => {
+            resolve(response);
+          },
+        });
+
+        checkout.open();
+      },
+    );
+
+    const verifyResponse = await fetch("/api/razorpay/verify-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        appOrderId,
+        razorpayOrderId: paymentResponse.razorpay_order_id,
+        razorpayPaymentId: paymentResponse.razorpay_payment_id,
+        razorpaySignature: paymentResponse.razorpay_signature,
+      }),
+    });
+
+    return readJsonResponse<RazorpayVerifyResponse>(verifyResponse);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -119,29 +342,27 @@ export default function CheckoutForm() {
 
     try {
       const { orderId } = await createOrder(order);
-      clearCart();
-      setCreatedOrderId(orderId);
-      if (typeof window !== "undefined") {
-        const savedOrders = window.localStorage.getItem("customerRecentOrders");
-        const existingOrders = savedOrders ? JSON.parse(savedOrders) : [];
-        const recentOrder = {
+
+      if (order.paymentOption === "razorpay") {
+        const verifiedPayment = await openRazorpayPayment(order, orderId);
+
+        if (!verifiedPayment.success) {
+          throw new Error("Razorpay payment could not be verified.");
+        }
+
+        finishSuccessfulOrder(
+          order,
           orderId,
-          customerName: order.customerName,
-          phoneNumber: order.phoneNumber,
-          deliveryAddress: order.deliveryAddress,
-          landmark: order.landmark,
-          googleMapLocation: order.googleMapLocation,
-          total: order.total,
-          status: "pending",
-          createdAt: new Date().toISOString(),
-        };
-        const nextOrders = [recentOrder, ...existingOrders.filter((entry: { orderId: string }) => entry.orderId !== orderId)].slice(0, 5);
-        window.localStorage.setItem("customerRecentOrders", JSON.stringify(nextOrders));
+          `Payment successful. Order saved successfully. Order ID: ${orderId}`,
+        );
+        return;
       }
-      setOrderStatus({
-        type: "success",
-        message: `Order saved successfully. Order ID: ${orderId}`,
-      });
+
+      finishSuccessfulOrder(
+        order,
+        orderId,
+        `Order saved successfully. Order ID: ${orderId}`,
+      );
     } catch (error) {
       setOrderStatus({
         type: "error",
@@ -292,8 +513,9 @@ export default function CheckoutForm() {
 
         {paymentOption === "razorpay" && (
           <div className="mt-5 rounded-lg border border-[#E9B44C]/25 bg-[#2D1B14] p-4 text-sm leading-6 text-zinc-200">
-            Razorpay payment will be connected here. For now, this checkout
-            captures the selected payment method and order details.
+            Razorpay is connected. Secure checkout will open after you click
+            the button, and the order will be confirmed only after payment
+            verification succeeds.
           </div>
         )}
 
@@ -334,7 +556,15 @@ export default function CheckoutForm() {
             disabled={cartCount === 0 || isSubmitting || orderAvailability.isPaused}
             className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#F97316] disabled:hover:text-white"
           >
-            {orderAvailability.isPaused ? "Orders Paused" : isSubmitting ? "Saving Order..." : "Place Order"}
+            {orderAvailability.isPaused
+              ? "Orders Paused"
+              : isSubmitting
+                ? paymentOption === "razorpay"
+                  ? "Processing Payment..."
+                  : "Saving Order..."
+                : paymentOption === "razorpay"
+                  ? "Pay with Razorpay"
+                  : "Place Order"}
           </button>
           <Link
             href="/menu"
