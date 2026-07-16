@@ -97,10 +97,10 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [menuItemsLoaded, setMenuItemsLoaded] = useState(false);
-  const [isOrderSoundEnabled, setIsOrderSoundEnabled] = useState(false);
+  const [isOrderSoundEnabled, setIsOrderSoundEnabled] = useState(true);
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const hasLoadedOrdersRef = useRef(false);
-  const orderSoundEnabledRef = useRef(false);
+  const orderSoundEnabledRef = useRef(true);
   const orderSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const playNewOrderSound = async () => {
@@ -118,17 +118,71 @@ export default function AdminDashboard() {
     navigator.vibrate?.([350, 120, 350]);
   };
 
+  const unlockOrderSound = async () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    orderSoundEnabledRef.current = true;
+    setIsOrderSoundEnabled(true);
+    window.localStorage.setItem("kaiThuttuAdminOrderSound", "enabled");
+
+    const audio = orderSoundRef.current ?? new Audio(newOrderSoundPath);
+    orderSoundRef.current = audio;
+    audio.loop = false;
+    audio.volume = 1;
+
+    // Browsers require a user gesture before audible autoplay. A muted warm-up
+    // keeps future new-order alerts ready without ringing on page load.
+    audio.muted = true;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
+  };
+
   const enableOrderSound = async () => {
     orderSoundEnabledRef.current = true;
     setIsOrderSoundEnabled(true);
+    window.localStorage.setItem("kaiThuttuAdminOrderSound", "enabled");
 
     try {
       await playNewOrderSound();
-      setMessage("New order sound enabled. Keep this admin page open to hear alerts.");
+      setMessage("New order sound is always enabled. Keep this admin page open to hear alerts.");
     } catch {
-      setMessage("Sound could not start. Click Enable Sound again and allow browser audio.");
+      setMessage("Sound is enabled, but the browser blocked the test ring. Click anywhere on this admin page once to allow audio.");
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    orderSoundEnabledRef.current = true;
+    setIsOrderSoundEnabled(true);
+    window.localStorage.setItem("kaiThuttuAdminOrderSound", "enabled");
+
+    unlockOrderSound().catch(() => {
+      setMessage("New order sound is enabled. Click anywhere on this admin page once so the browser allows audio alerts.");
+    });
+
+    const unlockOnInteraction = () => {
+      unlockOrderSound().catch(() => {
+        setMessage("Sound is enabled, but the browser is still blocking audio. Use the Test Sound button once.");
+      });
+    };
+
+    window.addEventListener("click", unlockOnInteraction, { once: true });
+    window.addEventListener("touchstart", unlockOnInteraction, { once: true });
+    window.addEventListener("keydown", unlockOnInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener("click", unlockOnInteraction);
+      window.removeEventListener("touchstart", unlockOnInteraction);
+      window.removeEventListener("keydown", unlockOnInteraction);
+    };
+  }, []);
 
   useEffect(() => {
     if (!db) {
@@ -558,7 +612,7 @@ export default function AdminDashboard() {
                   : "bg-[#E9B44C] text-black hover:bg-[#F97316] hover:text-white"
               }`}
             >
-              {isOrderSoundEnabled ? "Sound Enabled" : "Enable Sound"}
+              {isOrderSoundEnabled ? "Test Sound" : "Enable Sound"}
             </button>
             <button
               type="button"
