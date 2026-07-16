@@ -42,7 +42,7 @@ export default function CustomerPhoneAuthForm({
 }: CustomerPhoneAuthFormProps) {
   const { user } = useAuth();
   const reactId = useId();
-  const recaptchaId = `customer-recaptcha-${reactId.replace(/:/g, "")}`;
+  const sendOtpButtonId = `customer-send-otp-${reactId.replace(/:/g, "")}`;
   const verifierRef = useRef<RecaptchaVerifier | null>(null);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -62,10 +62,6 @@ export default function CustomerPhoneAuthForm({
   const resetVerifier = () => {
     verifierRef.current?.clear();
     verifierRef.current = null;
-    const container = document.getElementById(recaptchaId);
-    if (container) {
-      container.replaceChildren();
-    }
   };
 
   const sendOtp = async (event: FormEvent) => {
@@ -87,11 +83,16 @@ export default function CustomerPhoneAuthForm({
     try {
       resetVerifier();
       auth.useDeviceLanguage();
-      const verifier = new RecaptchaVerifier(auth, recaptchaId, {
-        size: "normal",
+      const verifier = new RecaptchaVerifier(auth, sendOtpButtonId, {
+        size: "invisible",
+        callback: () => {
+          setMessage("Sending OTP...");
+        },
+        "expired-callback": () => {
+          resetVerifier();
+        },
       });
       verifierRef.current = verifier;
-      await verifier.render();
       const result = await signInWithPhoneNumber(auth, `+91${digits}`, verifier);
       setConfirmation(result);
       setMessage(`OTP sent to +91 ${digits.slice(0, 5)} ${digits.slice(5)}.`);
@@ -179,9 +180,8 @@ export default function CustomerPhoneAuthForm({
             </span>
           </label>
 
-          <div id={recaptchaId} className="min-h-0 overflow-hidden" />
-
           <button
+            id={sendOtpButtonId}
             type="submit"
             disabled={isSubmitting}
             className="h-12 rounded-lg bg-[#E9B44C] px-5 text-sm font-black text-black transition hover:bg-[#F97316] hover:text-white disabled:cursor-wait disabled:opacity-60"
