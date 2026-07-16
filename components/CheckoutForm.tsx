@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/components/CartContext";
 import OrderNotificationSubscriber from "@/components/OrderNotificationSubscriber";
 import { useOrderAvailability } from "@/components/OrderAvailability";
-import { createOrder, type CreateOrderInput } from "@/lib/firestore";
+import {
+  createOrder,
+  hasCustomerPreviousOrders,
+  type CreateOrderInput,
+} from "@/lib/firestore";
 import { useDeliveryZone } from "@/components/DeliveryZoneSettings";
 import {
   checkDeliveryZone,
@@ -13,7 +17,15 @@ import {
   getDeliveryChargeMessage,
   parseCoordinatesFromMapsLink,
 } from "@/lib/deliveryZone";
-import { getMinimumOrderShortfall, minimumOrderAmount } from "@/lib/orderRules";
+import {
+  canApplyFirstOrderOffer,
+  firstOrderOfferCode,
+  firstOrderOfferDiscount,
+  firstOrderOfferMinimumSubtotal,
+  getFirstOrderOfferShortfall,
+  getMinimumOrderShortfall,
+  minimumOrderAmount,
+} from "@/lib/orderRules";
 
 type RazorpaySuccessResponse = {
   razorpay_payment_id: string;
@@ -146,6 +158,8 @@ export default function CheckoutForm() {
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSearchResults, setLocationSearchResults] = useState<LocationSearchResult[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [hasPreviousOrders, setHasPreviousOrders] = useState<boolean | null>(null);
+  const [isCheckingFirstOrder, setIsCheckingFirstOrder] = useState(false);
   const customerCoordinates = parseCoordinatesFromMapsLink(googleMapLocation);
   const currentServiceability = checkDeliveryZone(
     deliveryZone.zone,
@@ -156,10 +170,51 @@ export default function CheckoutForm() {
   );
   const minimumOrderShortfall = getMinimumOrderShortfall(cartTotal);
   const meetsMinimumOrder = minimumOrderShortfall === 0;
+  const isFirstOrder = hasPreviousOrders === false;
+  const isFirstOrderCheckPending = phoneNumber.length === 10 && hasPreviousOrders === null;
+  const firstOrderOfferShortfall = getFirstOrderOfferShortfall(cartTotal);
+  const firstOrderDiscount = canApplyFirstOrderOffer(cartTotal, isFirstOrder)
+    ? firstOrderOfferDiscount
+    : 0;
+  const payableTotal = Math.max(0, cartTotal - firstOrderDiscount);
 
   const updatePhoneNumber = (value: string) => {
     setPhoneNumber(value.replace(/\D/g, "").slice(0, 10));
   };
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (phoneNumber.length !== 10) {
+      setHasPreviousOrders(null);
+      setIsCheckingFirstOrder(false);
+      return;
+    }
+
+    setHasPreviousOrders(null);
+    setIsCheckingFirstOrder(true);
+
+    hasCustomerPreviousOrders(phoneNumber)
+      .then((previousOrdersExist) => {
+        if (isCurrent) {
+          setHasPreviousOrders(previousOrdersExist);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setHasPreviousOrders(true);
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsCheckingFirstOrder(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [phoneNumber]);
 
   const updateGoogleMapLocation = (value: string) => {
     setGoogleMapLocation(value);
@@ -442,7 +497,16 @@ export default function CheckoutForm() {
         quantity: line.quantity,
         lineTotal: line.lineTotal,
       })),
-      total: cartTotal,
+      subtotal: cartTotal,
+      discount: firstOrderDiscount,
+      offer: firstOrderDiscount > 0
+        ? {
+            code: firstOrderOfferCode,
+            title: "First order Rs. 100 off",
+            amount: firstOrderDiscount,
+          }
+        : null,
+      total: payableTotal,
     };
 
     if (order.phoneNumber.length !== 10) {
@@ -463,10 +527,19 @@ export default function CheckoutForm() {
       return;
     }
 
-    if (order.total < minimumOrderAmount) {
+    if (isCheckingFirstOrder || isFirstOrderCheckPending) {
       setOrderStatus({
         type: "error",
-        message: `Minimum order is Rs. ${minimumOrderAmount}. Add Rs. ${minimumOrderAmount - order.total} more to place your order.`,
+        message: "Checking your first order offer. Please wait a moment and try again.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (order.subtotal < minimumOrderAmount) {
+      setOrderStatus({
+        type: "error",
+        message: `Minimum order is Rs. ${minimumOrderAmount}. Add Rs. ${minimumOrderAmount - order.subtotal} more to place your order.`,
       });
       setIsSubmitting(false);
       return;
@@ -775,6 +848,24 @@ export default function CheckoutForm() {
           </div>
         )}
 
+        {cartCount > 0 && meetsMinimumOrder && (
+          <div
+            className={`mt-5 rounded-lg border p-4 text-sm font-bold leading-6 ${
+              firstOrderDiscount > 0
+                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                : "border-[#E9B44C]/25 bg-[#2D1B14] text-[#E9B44C]"
+            }`}
+          >
+            {isCheckingFirstOrder || isFirstOrderCheckPending
+              ? "Checking first order offer..."
+              : firstOrderDiscount > 0
+                ? `First order offer applied: Rs. ${firstOrderDiscount} off.`
+                : hasPreviousOrders
+                  ? "First order offer already used for this phone number."
+                  : `First order offer: add Rs. ${firstOrderOfferShortfall} more to claim Rs. ${firstOrderOfferDiscount} off.`}
+          </div>
+        )}
+
         {orderStatus && (
           <div
             className={`mt-5 rounded-lg border p-4 text-sm font-bold leading-6 ${
@@ -803,13 +894,22 @@ export default function CheckoutForm() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
-            disabled={cartCount === 0 || !meetsMinimumOrder || isSubmitting || orderAvailability.isPaused}
+            disabled={
+              cartCount === 0 ||
+              !meetsMinimumOrder ||
+              isCheckingFirstOrder ||
+              isFirstOrderCheckPending ||
+              isSubmitting ||
+              orderAvailability.isPaused
+            }
             className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#F97316] disabled:hover:text-white"
           >
             {orderAvailability.isPaused
               ? "Orders Paused"
               : !meetsMinimumOrder && cartCount > 0
                 ? `Add Rs. ${minimumOrderShortfall} more`
+              : isCheckingFirstOrder || isFirstOrderCheckPending
+                ? "Checking Offer..."
               : isSubmitting
                 ? paymentOption === "razorpay"
                   ? "Processing Payment..."
@@ -875,6 +975,12 @@ export default function CheckoutForm() {
             <span>Subtotal</span>
             <span>Rs. {cartTotal}</span>
           </div>
+          {firstOrderDiscount > 0 && (
+            <div className="mt-3 flex justify-between text-sm font-bold text-emerald-200">
+              <span>First order offer</span>
+              <span>- Rs. {firstOrderDiscount}</span>
+            </div>
+          )}
           <div className="mt-3 flex justify-between text-sm font-bold text-zinc-300">
             <span>Delivery</span>
             <span className="max-w-[14rem] text-right">
@@ -885,8 +991,16 @@ export default function CheckoutForm() {
           </div>
           <div className="mt-5 flex justify-between text-xl font-black text-white">
             <span>Total</span>
-            <span className="text-[#E9B44C]">Rs. {cartTotal}</span>
+            <span className="text-[#E9B44C]">Rs. {payableTotal}</span>
           </div>
+          {cartCount > 0 && meetsMinimumOrder && firstOrderDiscount === 0 && !hasPreviousOrders && (
+            <p className="mt-4 rounded-lg border border-[#E9B44C]/25 bg-[#E9B44C]/10 px-4 py-3 text-sm font-bold leading-6 text-[#E9B44C]">
+              First order offer unlocks above Rs.{" "}
+              {firstOrderOfferMinimumSubtotal}. Add Rs.{" "}
+              {firstOrderOfferShortfall} more to get Rs.{" "}
+              {firstOrderOfferDiscount} off.
+            </p>
+          )}
           {cartCount > 0 && !meetsMinimumOrder && (
             <p className="mt-4 rounded-lg border border-orange-400/30 bg-orange-500/10 px-4 py-3 text-sm font-bold leading-6 text-orange-100">
               Add Rs. {minimumOrderShortfall} more. Minimum order is Rs.{" "}

@@ -2,9 +2,13 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDocs,
+  limit,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   type DocumentReference,
   type Timestamp,
 } from "firebase/firestore";
@@ -38,6 +42,13 @@ export type CreateOrderInput = {
   googleMapLocation: string;
   paymentOption: "cod" | "razorpay";
   items: OrderItem[];
+  subtotal: number;
+  discount: number;
+  offer?: {
+    code: string;
+    title: string;
+    amount: number;
+  } | null;
   total: number;
 };
 
@@ -92,6 +103,9 @@ export async function createOrder(order: CreateOrderInput): Promise<CreateOrderR
         },
         orderedItems: order.items,
         paymentMethod: order.paymentOption,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        offer: order.offer ?? null,
         total: order.total,
         status: "pending",
         paymentStatus: order.paymentOption === "cod" ? "cash_on_delivery" : "pending",
@@ -122,6 +136,27 @@ export async function createOrder(order: CreateOrderInput): Promise<CreateOrderR
     orderId,
     orderReference,
   };
+}
+
+export async function hasCustomerPreviousOrders(phoneNumber: string) {
+  if (!db) {
+    throw new Error("Firebase is not configured. Add your Firebase environment variables.");
+  }
+
+  const normalizedPhone = phoneNumber.replace(/\D/g, "").slice(-10);
+
+  if (normalizedPhone.length !== 10) {
+    return false;
+  }
+
+  const previousOrdersQuery = query(
+    collection(db, "orders"),
+    where("customerDetails.phoneNumber", "==", normalizedPhone),
+    limit(1),
+  );
+  const snapshot = await getDocs(previousOrdersQuery);
+
+  return !snapshot.empty;
 }
 
 export async function saveOrderNotificationToken(orderId: string, token: string) {

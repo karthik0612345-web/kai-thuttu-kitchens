@@ -71,6 +71,9 @@ service cloud.firestore {
           "customerDetails",
           "orderedItems",
           "paymentMethod",
+          "subtotal",
+          "discount",
+          "offer",
           "total",
           "status",
           "paymentStatus",
@@ -99,7 +102,28 @@ service cloud.firestore {
             && request.resource.data.paymentStatus == "pending"
           )
         )
+        && request.resource.data.subtotal is number
+        && request.resource.data.subtotal >= 100
+        && request.resource.data.subtotal <= 50000
+        && request.resource.data.discount is number
+        && request.resource.data.discount >= 0
+        && request.resource.data.discount <= 100
+        && (
+          request.resource.data.offer == null
+          || (
+            request.resource.data.offer is map
+            && request.resource.data.offer.keys().hasOnly([
+              "code",
+              "title",
+              "amount"
+            ])
+            && request.resource.data.offer.code is string
+            && request.resource.data.offer.title is string
+            && request.resource.data.offer.amount == request.resource.data.discount
+          )
+        )
         && request.resource.data.total is number
+        && request.resource.data.total == request.resource.data.subtotal - request.resource.data.discount
         && request.resource.data.total > 0
         && request.resource.data.total <= 50000
         && request.resource.data.status == "pending"
@@ -160,7 +184,7 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow create: if hasValidNewOrder(orderId) || isAdmin();
       allow get: if isStaff() || isOrderCustomer(resource.data);
-      allow list: if isStaff();
+      allow list: if isStaff() || isOrderCustomer(resource.data);
       allow update: if isAdmin()
         || ((isStaff() || isOrderCustomer(resource.data)) && isNotificationTokenUpdate())
         || isDeliveryCashCollectionUpdate()

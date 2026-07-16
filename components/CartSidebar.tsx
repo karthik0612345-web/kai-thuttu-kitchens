@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/CartContext";
 import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
-import { getMinimumOrderShortfall, minimumOrderAmount } from "@/lib/orderRules";
+import {
+  firstOrderOfferDiscount,
+  firstOrderOfferMinimumSubtotal,
+  getMinimumOrderShortfall,
+  minimumOrderAmount,
+} from "@/lib/orderRules";
 
 function QuantityButton({
   label,
@@ -153,6 +158,13 @@ export default function CartSidebar() {
             <p className="mb-4 rounded-lg border border-orange-400/30 bg-orange-500/10 px-4 py-3 text-sm font-bold leading-6 text-orange-100">
               Minimum order is Rs. {minimumOrderAmount}. Add Rs.{" "}
               {minimumOrderShortfall} more to checkout.
+            </p>
+          )}
+          {cartCount > 0 && cartTotal > minimumOrderAmount && (
+            <p className="mb-4 rounded-lg border border-[#E9B44C]/25 bg-[#E9B44C]/10 px-4 py-3 text-sm font-bold leading-6 text-[#E9B44C]">
+              First order offer: Rs. {firstOrderOfferDiscount} off above Rs.{" "}
+              {firstOrderOfferMinimumSubtotal}. Eligibility is checked at
+              checkout.
             </p>
           )}
           <div className="grid gap-3">
