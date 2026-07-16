@@ -13,6 +13,7 @@ import {
   getDeliveryChargeMessage,
   parseCoordinatesFromMapsLink,
 } from "@/lib/deliveryZone";
+import { getMinimumOrderShortfall, minimumOrderAmount } from "@/lib/orderRules";
 
 type RazorpaySuccessResponse = {
   razorpay_payment_id: string;
@@ -153,6 +154,8 @@ export default function CheckoutForm() {
   const deliveryChargeMessage = getDeliveryChargeMessage(
     currentServiceability.distanceKm,
   );
+  const minimumOrderShortfall = getMinimumOrderShortfall(cartTotal);
+  const meetsMinimumOrder = minimumOrderShortfall === 0;
 
   const updatePhoneNumber = (value: string) => {
     setPhoneNumber(value.replace(/\D/g, "").slice(0, 10));
@@ -460,6 +463,15 @@ export default function CheckoutForm() {
       return;
     }
 
+    if (order.total < minimumOrderAmount) {
+      setOrderStatus({
+        type: "error",
+        message: `Minimum order is Rs. ${minimumOrderAmount}. Add Rs. ${minimumOrderAmount - order.total} more to place your order.`,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const customerCoordinates = parseCoordinatesFromMapsLink(order.googleMapLocation);
     const serviceability = checkDeliveryZone(deliveryZone.zone, customerCoordinates);
 
@@ -756,6 +768,13 @@ export default function CheckoutForm() {
           </div>
         )}
 
+        {cartCount > 0 && !meetsMinimumOrder && (
+          <div className="mt-5 rounded-lg border border-orange-400/30 bg-orange-500/10 p-4 text-sm font-bold leading-6 text-orange-100">
+            Minimum order is Rs. {minimumOrderAmount}. Add Rs.{" "}
+            {minimumOrderShortfall} more to place your order.
+          </div>
+        )}
+
         {orderStatus && (
           <div
             className={`mt-5 rounded-lg border p-4 text-sm font-bold leading-6 ${
@@ -784,11 +803,13 @@ export default function CheckoutForm() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
-            disabled={cartCount === 0 || isSubmitting || orderAvailability.isPaused}
+            disabled={cartCount === 0 || !meetsMinimumOrder || isSubmitting || orderAvailability.isPaused}
             className="inline-flex h-14 items-center justify-center rounded-full bg-[#F97316] px-8 text-sm font-black text-white transition hover:-translate-y-1 hover:bg-[#E9B44C] hover:text-black disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#F97316] disabled:hover:text-white"
           >
             {orderAvailability.isPaused
               ? "Orders Paused"
+              : !meetsMinimumOrder && cartCount > 0
+                ? `Add Rs. ${minimumOrderShortfall} more`
               : isSubmitting
                 ? paymentOption === "razorpay"
                   ? "Processing Payment..."
@@ -866,6 +887,12 @@ export default function CheckoutForm() {
             <span>Total</span>
             <span className="text-[#E9B44C]">Rs. {cartTotal}</span>
           </div>
+          {cartCount > 0 && !meetsMinimumOrder && (
+            <p className="mt-4 rounded-lg border border-orange-400/30 bg-orange-500/10 px-4 py-3 text-sm font-bold leading-6 text-orange-100">
+              Add Rs. {minimumOrderShortfall} more. Minimum order is Rs.{" "}
+              {minimumOrderAmount}.
+            </p>
+          )}
         </div>
 
         {cartCount > 0 && (

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/CartContext";
 import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
+import { getMinimumOrderShortfall, minimumOrderAmount } from "@/lib/orderRules";
 
 function QuantityButton({
   label,
@@ -50,6 +51,8 @@ export default function CartSidebar() {
           .join("%0A")}%0ATotal: Rs. ${cartTotal}`
       : "Hi%20Kai%20Thuttu%20Kitchens%2C%20I%20would%20like%20to%20place%20an%20order.";
   const whatsappHref = `https://wa.me/917676198004?text=${whatsappText}`;
+  const minimumOrderShortfall = getMinimumOrderShortfall(cartTotal);
+  const canCheckout = cartCount > 0 && minimumOrderShortfall === 0;
 
   return (
     <>
@@ -146,23 +149,37 @@ export default function CartSidebar() {
             <span className="text-white">Total</span>
             <span className="text-[#E9B44C]">Rs. {cartTotal}</span>
           </div>
+          {cartCount > 0 && minimumOrderShortfall > 0 && (
+            <p className="mb-4 rounded-lg border border-orange-400/30 bg-orange-500/10 px-4 py-3 text-sm font-bold leading-6 text-orange-100">
+              Minimum order is Rs. {minimumOrderAmount}. Add Rs.{" "}
+              {minimumOrderShortfall} more to checkout.
+            </p>
+          )}
           <div className="grid gap-3">
             <button
               type="button"
               onClick={() =>
                 requireCustomerAuth(() => {
+                  if (!canCheckout) {
+                    return;
+                  }
+
                   closeCart();
                   router.push("/checkout");
                 })
               }
-              disabled={cartCount === 0}
+              disabled={!canCheckout}
               className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-black transition ${
-                cartCount === 0
+                !canCheckout
                   ? "cursor-not-allowed bg-white/10 text-zinc-500"
                   : "bg-[#E9B44C] text-black hover:bg-[#F97316] hover:text-white"
               }`}
             >
-              Checkout
+              {cartCount === 0
+                ? "Checkout"
+                : minimumOrderShortfall > 0
+                  ? `Add Rs. ${minimumOrderShortfall} more`
+                  : "Checkout"}
             </button>
             <button
               type="button"
