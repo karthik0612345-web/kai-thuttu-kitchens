@@ -1,11 +1,9 @@
 "use client";
 
 import {
-  onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   type ConfirmationResult,
-  type User,
 } from "firebase/auth";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { auth } from "@/lib/firebase";
@@ -44,34 +42,6 @@ function getAuthErrorMessage(error: unknown) {
   return "We could not complete phone verification. Please try again.";
 }
 
-function waitForPhoneAuthUser(phoneNumber: string) {
-  return new Promise<User>((resolve, reject) => {
-    if (!auth) {
-      reject(new Error("Firebase Authentication is not configured."));
-      return;
-    }
-
-    const currentUser = auth.currentUser;
-
-    if (currentUser?.phoneNumber === phoneNumber) {
-      resolve(currentUser);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      unsubscribe();
-      reject(new Error("Phone login is taking too long. Please try again."));
-    }, 8000);
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      if (nextUser?.phoneNumber === phoneNumber) {
-        window.clearTimeout(timeout);
-        unsubscribe();
-        resolve(nextUser);
-      }
-    });
-  });
-}
-
 export default function CustomerPhoneAuthForm({
   onSuccess,
   compact = false,
@@ -84,7 +54,7 @@ export default function CustomerPhoneAuthForm({
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] =
     useState<ConfirmationResult | null>(null);
-  const [verificationPhoneNumber, setVerificationPhoneNumber] = useState("");
+  const lastSubmittedOtpRef = useRef("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -122,9 +92,6 @@ export default function CustomerPhoneAuthForm({
       auth.useDeviceLanguage();
       const verifier = new RecaptchaVerifier(auth, sendOtpButtonId, {
         size: "invisible",
-        callback: () => {
-          setMessage("Sending OTP...");
-        },
         "expired-callback": () => {
           resetVerifier();
         },
@@ -132,7 +99,7 @@ export default function CustomerPhoneAuthForm({
       verifierRef.current = verifier;
       const result = await signInWithPhoneNumber(auth, `+91${digits}`, verifier);
       setConfirmation(result);
-      setVerificationPhoneNumber(`+91${digits}`);
+      lastSubmittedOtpRef.current = "";
       setMessage(`OTP sent to +91 ${digits.slice(0, 5)} ${digits.slice(5)}.`);
     } catch (error) {
       resetVerifier();
@@ -142,30 +109,46 @@ export default function CustomerPhoneAuthForm({
     }
   };
 
-  const verifyOtp = async (event: FormEvent) => {
-    event.preventDefault();
+  const verifyOtpCode = async (otpCode: string) => {
+    const digits = otpCode.replace(/\D/g, "");
 
-    if (!confirmation || otp.replace(/\D/g, "").length !== 6) {
+    if (!confirmation || digits.length !== 6) {
       setMessage("Enter the 6-digit OTP sent to your phone.");
       return;
     }
 
+    if (lastSubmittedOtpRef.current === digits || isSubmitting) {
+      return;
+    }
+
+    lastSubmittedOtpRef.current = digits;
     setIsSubmitting(true);
     setMessage("Verifying OTP...");
 
     try {
-      const credentials = await confirmation.confirm(otp);
-      const expectedPhoneNumber =
-        verificationPhoneNumber || credentials.user.phoneNumber || "";
-      await waitForPhoneAuthUser(expectedPhoneNumber);
+      await confirmation.confirm(digits);
       setMessage("Mobile number verified successfully.");
       onSuccess?.();
     } catch (error) {
+      lastSubmittedOtpRef.current = "";
       setMessage(getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const verifyOtp = (event: FormEvent) => {
+    event.preventDefault();
+    void verifyOtpCode(otp);
+  };
+
+  useEffect(() => {
+    const digits = otp.replace(/\D/g, "");
+
+    if (confirmation && digits.length === 6 && !isSubmitting) {
+      void verifyOtpCode(digits);
+    }
+  }, [confirmation, isSubmitting, otp]);
 
   if (user) {
     return (
@@ -258,7 +241,6 @@ export default function CustomerPhoneAuthForm({
             type="button"
             onClick={() => {
               setConfirmation(null);
-              setVerificationPhoneNumber("");
               setOtp("");
               setMessage("");
               resetVerifier();
@@ -271,7 +253,6 @@ export default function CustomerPhoneAuthForm({
             type="button"
             onClick={() => {
               setConfirmation(null);
-              setVerificationPhoneNumber("");
               setOtp("");
               setMessage("Enter your mobile number again to receive a new OTP.");
               resetVerifier();
