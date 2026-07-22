@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   type ConfirmationResult,
+  type User,
 } from "firebase/auth";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { auth } from "@/lib/firebase";
@@ -26,14 +28,48 @@ function getAuthErrorMessage(error: unknown) {
   if (code.includes("invalid-verification-code")) {
     return "That OTP is incorrect. Please check it and try again.";
   }
+  if (code.includes("code-expired") || code.includes("session-expired")) {
+    return "This OTP has expired. Please request a new OTP.";
+  }
   if (code.includes("too-many-requests") || code.includes("quota-exceeded")) {
     return "Too many OTP requests. Please wait before trying again.";
+  }
+  if (code.includes("network-request-failed")) {
+    return "Network issue while verifying OTP. Check internet and try again.";
   }
   if (code.includes("captcha-check-failed")) {
     return "reCAPTCHA verification failed. Please try again.";
   }
 
   return "We could not complete phone verification. Please try again.";
+}
+
+function waitForPhoneAuthUser(phoneNumber: string) {
+  return new Promise<User>((resolve, reject) => {
+    if (!auth) {
+      reject(new Error("Firebase Authentication is not configured."));
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+
+    if (currentUser?.phoneNumber === phoneNumber) {
+      resolve(currentUser);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Phone login is taking too long. Please try again."));
+    }, 8000);
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      if (nextUser?.phoneNumber === phoneNumber) {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(nextUser);
+      }
+    });
+  });
 }
 
 export default function CustomerPhoneAuthForm({
@@ -48,6 +84,7 @@ export default function CustomerPhoneAuthForm({
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] =
     useState<ConfirmationResult | null>(null);
+  const [verificationPhoneNumber, setVerificationPhoneNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -95,6 +132,7 @@ export default function CustomerPhoneAuthForm({
       verifierRef.current = verifier;
       const result = await signInWithPhoneNumber(auth, `+91${digits}`, verifier);
       setConfirmation(result);
+      setVerificationPhoneNumber(`+91${digits}`);
       setMessage(`OTP sent to +91 ${digits.slice(0, 5)} ${digits.slice(5)}.`);
     } catch (error) {
       resetVerifier();
@@ -113,10 +151,13 @@ export default function CustomerPhoneAuthForm({
     }
 
     setIsSubmitting(true);
-    setMessage("");
+    setMessage("Verifying OTP...");
 
     try {
-      await confirmation.confirm(otp);
+      const credentials = await confirmation.confirm(otp);
+      const expectedPhoneNumber =
+        verificationPhoneNumber || credentials.user.phoneNumber || "";
+      await waitForPhoneAuthUser(expectedPhoneNumber);
       setMessage("Mobile number verified successfully.");
       onSuccess?.();
     } catch (error) {
@@ -217,6 +258,7 @@ export default function CustomerPhoneAuthForm({
             type="button"
             onClick={() => {
               setConfirmation(null);
+              setVerificationPhoneNumber("");
               setOtp("");
               setMessage("");
               resetVerifier();
@@ -224,6 +266,19 @@ export default function CustomerPhoneAuthForm({
             className="h-11 text-sm font-bold text-zinc-300 transition hover:text-[#E9B44C]"
           >
             Change mobile number
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmation(null);
+              setVerificationPhoneNumber("");
+              setOtp("");
+              setMessage("Enter your mobile number again to receive a new OTP.");
+              resetVerifier();
+            }}
+            className="h-11 text-sm font-bold text-[#E9B44C] transition hover:text-white"
+          >
+            Resend OTP
           </button>
         </form>
       )}
