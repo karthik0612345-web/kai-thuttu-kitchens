@@ -170,3 +170,15 @@ export async function saveOrderNotificationToken(orderId: string, token: string)
     updatedAt: serverTimestamp(),
   });
 }
+
+export async function saveSignaturePackageNotificationToken(packageId: string, token: string) {
+  if (!db) {
+    throw new Error("Firebase is not configured. Add your Firebase environment variables.");
+  }
+
+  await updateDoc(doc(db, "signaturePackages", packageId), {
+    notificationToken: token,
+    notificationTokens: arrayUnion(token),
+    updatedAt: serverTimestamp(),
+  });
+}

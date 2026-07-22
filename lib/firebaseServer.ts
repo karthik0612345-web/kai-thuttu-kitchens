@@ -72,12 +72,12 @@ export async function getFirebaseAccessToken(scope: string) {
   return result.access_token as string;
 }
 
-function getOrderDocumentUrl(orderId: string, fieldPaths?: string[]) {
+function getDocumentUrl(collectionName: string, documentId: string, fieldPaths?: string[]) {
   if (!firebaseProjectId) {
     throw new Error("Firebase project ID is missing.");
   }
 
-  const baseUrl = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/(default)/documents/orders/${encodeURIComponent(orderId)}`;
+  const baseUrl = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/(default)/documents/${encodeURIComponent(collectionName)}/${encodeURIComponent(documentId)}`;
 
   if (!fieldPaths || fieldPaths.length === 0) {
     return baseUrl;
@@ -89,6 +89,54 @@ function getOrderDocumentUrl(orderId: string, fieldPaths?: string[]) {
   });
 
   return `${baseUrl}?${searchParams.toString()}`;
+}
+
+function getOrderDocumentUrl(orderId: string, fieldPaths?: string[]) {
+  return getDocumentUrl("orders", orderId, fieldPaths);
+}
+
+export async function getFirestoreDocument(collectionName: string, documentId: string) {
+  const accessToken = await getFirebaseAccessToken(
+    "https://www.googleapis.com/auth/datastore",
+  );
+  const response = await fetch(getDocumentUrl(collectionName, documentId), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error?.message ?? "Unable to read Firestore document.");
+  }
+
+  return result as FirestoreRestDocument;
+}
+
+export async function updateFirestoreDocument(
+  collectionName: string,
+  documentId: string,
+  fields: Record<string, FirestoreFieldValue>,
+) {
+  const accessToken = await getFirebaseAccessToken(
+    "https://www.googleapis.com/auth/datastore",
+  );
+  const fieldPaths = Object.keys(fields);
+  const response = await fetch(getDocumentUrl(collectionName, documentId, fieldPaths), {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error?.message ?? "Unable to update Firestore document.");
+  }
+
+  return result as FirestoreRestDocument;
 }
 
 export async function getOrderDocument(orderId: string) {
@@ -160,4 +208,12 @@ export function getFirestoreNumber(
   }
 
   return 0;
+}
+
+export function getFirestoreTimestamp(
+  document: FirestoreRestDocument,
+  fieldName: string,
+) {
+  const value = document.fields?.[fieldName];
+  return value && "timestampValue" in value ? value.timestampValue : "";
 }

@@ -42,6 +42,11 @@ service cloud.firestore {
         && isCustomerPhone(orderData.customerDetails.phoneNumber);
     }
 
+    function isSignaturePackageCustomer(packageData) {
+      return packageData.phoneNumber is string
+        && isCustomerPhone(packageData.phoneNumber);
+    }
+
     function hasValidCustomerDetails(orderData) {
       return orderData.customerDetails is map
         && orderData.customerDetails.keys().hasOnly([
@@ -148,6 +153,16 @@ service cloud.firestore {
       ]);
     }
 
+    function isSignaturePackageNotificationUpdate() {
+      return isSignaturePackageCustomer(resource.data)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "notificationToken",
+          "notificationTokens",
+          "lastExpiryNotificationAt",
+          "updatedAt"
+        ]);
+    }
+
     function isDeliveryCashCollectionUpdate() {
       return isDelivery()
         && resource.data.paymentMethod == "cod"
@@ -195,6 +210,13 @@ service cloud.firestore {
     match /menuItems/{itemId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    match /signaturePackages/{packageId} {
+      allow get: if isAdmin() || isSignaturePackageCustomer(resource.data);
+      allow list: if isAdmin() || isSignaturePackageCustomer(resource.data);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isSignaturePackageNotificationUpdate();
     }
 
     match /settings/{settingId} {

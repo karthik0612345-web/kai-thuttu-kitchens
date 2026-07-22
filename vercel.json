@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/notify-package-expiry",
+      "schedule": "30 3 * * *"
+    }
+  ]
+}

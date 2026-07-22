@@ -10,6 +10,7 @@ import { useCustomerAuthGate } from "@/components/CustomerAuthGate";
 const navItems = [
   { label: "Home", href: "/" },
   { label: "Menu", href: "/menu" },
+  { label: "Packages", href: "/signature-packages" },
   { label: "Track", href: "/order-tracking" },
   { label: "About", href: "/#about" },
   { label: "Contact", href: "/#contact" },
