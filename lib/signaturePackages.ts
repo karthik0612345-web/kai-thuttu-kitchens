@@ -3,25 +3,35 @@ import type { Timestamp } from "firebase/firestore";
 export const signaturePackageCollection = "signaturePackages";
 export const signaturePackageRenewalDays = 30;
 export const signaturePackageExpiryNoticeDays = 2;
+export const signaturePackageDurations = {
+  Weekly: 7,
+  Monthly: 30,
+} as const;
+
+export type SignaturePackagePeriod = keyof typeof signaturePackageDurations;
 
 export const signaturePackagePlans = [
   {
     name: "Balance Box",
+    weeklyPrice: 410,
     monthlyPrice: 1500,
     description: "1 salad, 1 vegetable dish, and 2 fruit portions.",
   },
   {
     name: "Smart Fuel Box (Grand Box)",
+    weeklyPrice: 610,
     monthlyPrice: 2399,
     description: "1 salad, 1 vegetable dish, 1 egg, and 3 fruit portions.",
   },
   {
     name: "Power Nourish Box (Royal Box)",
+    weeklyPrice: 710,
     monthlyPrice: 2799,
     description: "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, and 4 fruit portions.",
   },
   {
     name: "Chicken Power Nourish Box (Royal Box)",
+    weeklyPrice: 910,
     monthlyPrice: 3599,
     description:
       "1 salad, 1 vegetable dish, 1 portion of nuts, 1 egg, boiled chicken, and 4 fruit portions.",
@@ -37,6 +47,8 @@ export type SignaturePackage = {
   phoneNumber: string;
   planName: string;
   planDescription?: string;
+  packagePeriod?: SignaturePackagePeriod;
+  packageDurationDays?: number;
   amount: number;
   status: SignaturePackageStatus;
   startDate?: Timestamp;
@@ -54,7 +66,11 @@ export function normalizePhoneNumber(value: string) {
   return value.replace(/\D/g, "").slice(-10);
 }
 
-export function createSignaturePackageId(phoneNumber: string, planName: string) {
+export function createSignaturePackageId(
+  phoneNumber: string,
+  planName: string,
+  packagePeriod: SignaturePackagePeriod = "Monthly",
+) {
   const timestamp = Date.now().toString(36).toUpperCase();
   const planSlug = planName
     .toLowerCase()
@@ -62,7 +78,7 @@ export function createSignaturePackageId(phoneNumber: string, planName: string) 
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
 
-  return `KTK-PKG-${normalizePhoneNumber(phoneNumber)}-${planSlug}-${timestamp}`;
+  return `KTK-PKG-${normalizePhoneNumber(phoneNumber)}-${packagePeriod.toUpperCase()}-${planSlug}-${timestamp}`;
 }
 
 export function addDays(date: Date, days: number) {

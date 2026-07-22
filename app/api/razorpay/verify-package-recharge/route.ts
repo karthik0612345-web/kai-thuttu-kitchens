@@ -10,7 +10,7 @@ import {
 import {
   addDays,
   signaturePackageCollection,
-  signaturePackageRenewalDays,
+  signaturePackageDurations,
 } from "@/lib/signaturePackages";
 
 export const runtime = "nodejs";
@@ -75,11 +75,14 @@ export async function POST(request: Request) {
       packageDocument,
       "razorpayRechargeAmount",
     );
+    const packageDurationDays =
+      getFirestoreNumber(packageDocument, "packageDurationDays") ||
+      signaturePackageDurations.Monthly;
     const currentExpiryTimestamp = getFirestoreTimestamp(packageDocument, "expiryDate");
 
     if (storedRazorpayOrderId !== razorpayOrderId || storedRazorpayAmount <= 0) {
       return NextResponse.json(
-        { error: "Razorpay recharge does not match this monthly package." },
+        { error: "Razorpay recharge does not match this signature package." },
         { status: 400 },
       );
     }
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
     const timestamp = new Date().toISOString();
     const nextExpiryDate = addDays(
       getRenewalBaseDate(currentExpiryTimestamp),
-      signaturePackageRenewalDays,
+      packageDurationDays,
     );
 
     await updateFirestoreDocument(signaturePackageCollection, packageId, {

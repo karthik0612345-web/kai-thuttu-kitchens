@@ -7,13 +7,22 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where,
   type DocumentReference,
-  type Timestamp,
+  type Timestamp as FirestoreTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { OrderStatus } from "@/lib/orderStatus";
+import {
+  addDays,
+  createSignaturePackageId,
+  signaturePackageCollection,
+  signaturePackageDurations,
+  signaturePackagePlans,
+  type SignaturePackagePeriod,
+} from "@/lib/signaturePackages";
 
 export type OrderItem = {
   name: string;
@@ -31,7 +40,7 @@ export type OrderDeliveryPerson = {
 
 export type OrderStatusHistoryEntry = {
   status: OrderStatus;
-  timestamp: Timestamp;
+  timestamp: FirestoreTimestamp;
 };
 
 export type CreateOrderInput = {
@@ -181,4 +190,98 @@ export async function saveSignaturePackageNotificationToken(packageId: string, t
     notificationTokens: arrayUnion(token),
     updatedAt: serverTimestamp(),
   });
+}
+
+function getSignaturePackageFromOrderItem(item: OrderItem) {
+  const normalizedCategory = item.category.trim().toLowerCase();
+  const normalizedName = item.name.trim();
+
+  if (normalizedCategory !== "signature meal boxes starter") {
+    return null;
+  }
+
+  const planPeriod: SignaturePackagePeriod = normalizedName.toLowerCase().includes("weekly")
+    ? "Weekly"
+    : "Monthly";
+  const planName = normalizedName
+    .replace(/\s+-\s+weekly\s+plan$/i, "")
+    .replace(/\s+-\s+monthly\s+plan$/i, "")
+    .trim();
+  const packagePlan = signaturePackagePlans.find(
+    (plan) => plan.name.toLowerCase() === planName.toLowerCase(),
+  );
+
+  return {
+    planName,
+    planDescription: packagePlan?.description ?? "",
+    packagePeriod: planPeriod,
+    packageDurationDays: signaturePackageDurations[planPeriod],
+  };
+}
+
+export async function createSignaturePackagesFromOrder(
+  order: CreateOrderInput,
+  orderId: string,
+) {
+  if (!db) {
+    throw new Error("Firebase is not configured. Add your Firebase environment variables.");
+  }
+
+  const packageItems = order.items
+    .map((item) => ({
+      item,
+      packageDetails: getSignaturePackageFromOrderItem(item),
+    }))
+    .filter(
+      (entry): entry is { item: OrderItem; packageDetails: NonNullable<ReturnType<typeof getSignaturePackageFromOrderItem>> } =>
+        Boolean(entry.packageDetails),
+    );
+
+  if (packageItems.length === 0) {
+    return [];
+  }
+
+  const now = new Date();
+  const createdPackageIds: string[] = [];
+
+  await Promise.all(
+    packageItems.flatMap(({ item, packageDetails }) =>
+      Array.from({ length: item.quantity }).map(async (_, index) => {
+        const packageId = createSignaturePackageId(
+          order.phoneNumber,
+          packageDetails.planName,
+          packageDetails.packagePeriod,
+        );
+        const packageReference = doc(collection(db!, signaturePackageCollection), packageId);
+        const expiryDate = addDays(now, packageDetails.packageDurationDays);
+
+        await setDoc(packageReference, {
+          packageId,
+          customerName: order.customerName,
+          phoneNumber: order.phoneNumber,
+          planName: packageDetails.planName,
+          planDescription: packageDetails.planDescription,
+          packagePeriod: packageDetails.packagePeriod,
+          packageDurationDays: packageDetails.packageDurationDays,
+          amount: item.priceValue,
+          status: "active",
+          startDate: Timestamp.fromDate(now),
+          expiryDate: Timestamp.fromDate(expiryDate),
+          paymentMode: order.paymentOption,
+          paymentStatus: order.paymentOption === "cod" ? "cash_on_delivery" : "paid",
+          sourceOrderId: orderId,
+          sourceOrderItemName: item.name,
+          sourceOrderItemIndex: index,
+          notificationToken: null,
+          notificationTokens: [],
+          lastExpiryNotificationAt: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        createdPackageIds.push(packageId);
+      }),
+    ),
+  );
+
+  return createdPackageIds;
 }

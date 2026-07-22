@@ -7,6 +7,7 @@ import OrderNotificationSubscriber from "@/components/OrderNotificationSubscribe
 import { useOrderAvailability } from "@/components/OrderAvailability";
 import {
   createOrder,
+  createSignaturePackagesFromOrder,
   hasCustomerPreviousOrders,
   type CreateOrderInput,
 } from "@/lib/firestore";
@@ -567,6 +568,8 @@ export default function CheckoutForm() {
           throw new Error("Razorpay payment could not be verified.");
         }
 
+        await createSignaturePackagesFromOrder(order, orderId);
+
         finishSuccessfulOrder(
           order,
           orderId,
@@ -574,6 +577,8 @@ export default function CheckoutForm() {
         );
         return;
       }
+
+      await createSignaturePackagesFromOrder(order, orderId);
 
       finishSuccessfulOrder(
         order,

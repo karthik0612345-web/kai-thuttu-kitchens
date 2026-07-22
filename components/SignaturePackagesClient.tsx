@@ -137,7 +137,7 @@ function normalizeCustomerPhone(phoneNumber: string | null | undefined) {
 }
 
 export default function SignaturePackagesClient() {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, signOut } = useAuth();
   const [packages, setPackages] = useState<SignaturePackage[]>([]);
   const [message, setMessage] = useState("");
   const [isRecharging, setIsRecharging] = useState("");
@@ -207,7 +207,7 @@ export default function SignaturePackagesClient() {
 
         if (!window.localStorage.getItem(notificationKey)) {
           registration.showNotification("Signature Meal Box expiring soon", {
-            body: `${firstPackage.planName} expires on ${formatPackageDate(firstPackage.expiryDate)}. Recharge to continue your monthly meals.`,
+            body: `${firstPackage.planName} expires on ${formatPackageDate(firstPackage.expiryDate)}. Recharge to continue your meal package.`,
             icon: "/kai-thuttu-logo.jpeg",
           });
           window.localStorage.setItem(notificationKey, new Date().toISOString());
@@ -294,7 +294,7 @@ export default function SignaturePackagesClient() {
             amount: razorpayOrder.amount,
             currency: razorpayOrder.currency,
             name: "Kai Thuttu Kitchens",
-            description: `${pkg.planName} monthly recharge`,
+            description: `${pkg.planName} ${pkg.packagePeriod ?? "Monthly"} recharge`,
             image: "/kai-thuttu-logo.jpeg",
             order_id: razorpayOrder.razorpayOrderId,
             prefill: {
@@ -327,7 +327,7 @@ export default function SignaturePackagesClient() {
       });
 
       await readJsonResponse<{ success: boolean }>(verifyResponse);
-      setMessage(`${pkg.planName} recharged successfully. Your package is extended for 30 days.`);
+      setMessage(`${pkg.planName} recharged successfully. Your package is extended.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to recharge this package.");
     } finally {
@@ -351,10 +351,26 @@ export default function SignaturePackagesClient() {
             Customer login
           </p>
           <h2 className="mt-3 text-3xl font-black text-white">
-            Login to view your monthly package
+            Login with mobile OTP to view your package
           </h2>
+          {user?.email && (
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              You are currently signed in with {user.email}. Package details
+              are linked to customer mobile numbers, so sign out and login with
+              the same mobile number used for the package.
+            </p>
+          )}
         </div>
-        <CustomerPhoneAuthForm compact />
+        {user?.email && (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="h-12 rounded-full bg-[#F97316] px-5 text-sm font-black text-white transition hover:bg-[#E9B44C] hover:text-black"
+          >
+            Sign out email account
+          </button>
+        )}
+        {!user?.email && <CustomerPhoneAuthForm compact />}
       </div>
     );
   }
@@ -367,10 +383,10 @@ export default function SignaturePackagesClient() {
             Signature Meal Boxes
           </p>
           <h1 className="mt-3 text-4xl font-black text-white sm:text-6xl">
-            My Monthly Packages
+            My Signature Packages
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            View offline monthly package details, expiry date, and recharge your
+            View offline weekly and monthly package details, expiry date, and recharge your
             Signature Meal Box before it expires.
           </p>
         </div>
@@ -435,9 +451,9 @@ export default function SignaturePackagesClient() {
                 </p>
                 <p>
                   <span className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
-                    Monthly Amount
+                    Package Amount
                   </span>
-                  Rs. {pkg.amount}
+                  {pkg.packagePeriod ?? "Monthly"} | Rs. {pkg.amount}
                 </p>
                 <p>
                   <span className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
@@ -474,9 +490,9 @@ export default function SignaturePackagesClient() {
                   }`}
                 >
                   {isRecharging === pkg.id
-                    ? "Opening payment..."
+                      ? "Opening payment..."
                     : canRecharge
-                      ? "Recharge Monthly Package"
+                      ? `Recharge ${pkg.packagePeriod ?? "Monthly"} Package`
                       : `Recharge opens ${signaturePackageExpiryNoticeDays} days before expiry`}
                 </button>
               </div>
@@ -487,11 +503,11 @@ export default function SignaturePackagesClient() {
         {packages.length === 0 && (
           <div className="rounded-lg border border-white/10 bg-white/[0.06] p-8 text-center lg:col-span-2">
             <h2 className="text-2xl font-black text-white">
-              No monthly package found for {user.phoneNumber}
+              No signature package found for {user.phoneNumber}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-300">
               If you purchased a Signature Meal Box offline, ask admin to add
-              your mobile number in the admin monthly packages section.
+              your mobile number in the admin package section.
             </p>
           </div>
         )}

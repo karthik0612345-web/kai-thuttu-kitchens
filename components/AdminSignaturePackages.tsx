@@ -22,9 +22,11 @@ import {
   getPackageStatusLabel,
   normalizePhoneNumber,
   signaturePackageCollection,
+  signaturePackageDurations,
   signaturePackagePlans,
   toInputDateValue,
   type SignaturePackage,
+  type SignaturePackagePeriod,
   type SignaturePackageStatus,
 } from "@/lib/signaturePackages";
 
@@ -34,6 +36,7 @@ const initialPackageForm = {
   customerName: "",
   phoneNumber: "",
   planName: signaturePackagePlans[0].name as string,
+  packagePeriod: "Monthly" as SignaturePackagePeriod,
   amount: String(signaturePackagePlans[0].monthlyPrice),
   startDate: toInputDateValue(today),
   expiryDate: toInputDateValue(addDays(today, 30)),
@@ -44,8 +47,13 @@ function getPlanDescription(planName: string) {
   return signaturePackagePlans.find((plan) => plan.name === planName)?.description ?? "";
 }
 
-function getPlanPrice(planName: string) {
-  return signaturePackagePlans.find((plan) => plan.name === planName)?.monthlyPrice ?? 0;
+function getPlanPrice(planName: string, packagePeriod: SignaturePackagePeriod) {
+  const plan = signaturePackagePlans.find((packagePlan) => packagePlan.name === planName);
+  return packagePeriod === "Weekly" ? plan?.weeklyPrice ?? 0 : plan?.monthlyPrice ?? 0;
+}
+
+function getExpiryDate(startDate: string, packagePeriod: SignaturePackagePeriod) {
+  return toInputDateValue(addDays(new Date(`${startDate}T00:00:00`), signaturePackageDurations[packagePeriod]));
 }
 
 function dateInputToTimestamp(value: string) {
@@ -104,7 +112,7 @@ export default function AdminSignaturePackages() {
       const days = getPackageDaysRemaining(pkg.expiryDate);
       return days !== null && days >= 0 && days <= 2;
     }).length;
-    const monthlyValue = packages
+    const packageValue = packages
       .filter((pkg) => pkg.status === "active")
       .reduce((sum, pkg) => sum + (pkg.amount ?? 0), 0);
 
@@ -112,7 +120,7 @@ export default function AdminSignaturePackages() {
       total: packages.length,
       active: activePackages,
       expiring: expiringPackages,
-      monthlyValue,
+      packageValue,
     };
   }, [packages]);
 
@@ -124,7 +132,17 @@ export default function AdminSignaturePackages() {
     setForm((current) => ({
       ...current,
       planName,
-      amount: String(getPlanPrice(planName)),
+      amount: String(getPlanPrice(planName, current.packagePeriod)),
+      expiryDate: getExpiryDate(current.startDate, current.packagePeriod),
+    }));
+  };
+
+  const updatePackagePeriod = (packagePeriod: SignaturePackagePeriod) => {
+    setForm((current) => ({
+      ...current,
+      packagePeriod,
+      amount: String(getPlanPrice(current.planName, packagePeriod)),
+      expiryDate: getExpiryDate(current.startDate, packagePeriod),
     }));
   };
 
@@ -145,13 +163,13 @@ export default function AdminSignaturePackages() {
     }
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter a valid monthly package amount.");
+      setMessage("Enter a valid package amount.");
       return;
     }
 
     const packageId = form.id
       ? packages.find((pkg) => pkg.id === form.id)?.packageId ?? form.id
-      : createSignaturePackageId(phoneNumber, form.planName);
+      : createSignaturePackageId(phoneNumber, form.planName, form.packagePeriod);
     const packageReference = doc(db, signaturePackageCollection, form.id || packageId);
     const payload = {
       packageId,
@@ -159,6 +177,8 @@ export default function AdminSignaturePackages() {
       phoneNumber,
       planName: form.planName,
       planDescription: getPlanDescription(form.planName),
+      packagePeriod: form.packagePeriod,
+      packageDurationDays: signaturePackageDurations[form.packagePeriod],
       amount,
       status: form.status,
       startDate: dateInputToTimestamp(form.startDate),
@@ -170,7 +190,7 @@ export default function AdminSignaturePackages() {
 
     if (form.id) {
       await updateDoc(packageReference, payload);
-      setMessage("Monthly package updated.");
+      setMessage("Signature package updated.");
     } else {
       await setDoc(packageReference, {
         ...payload,
@@ -179,7 +199,7 @@ export default function AdminSignaturePackages() {
         lastExpiryNotificationAt: null,
         createdAt: serverTimestamp(),
       });
-      setMessage("Offline monthly package added.");
+      setMessage("Offline signature package added.");
     }
 
     resetForm();
@@ -191,6 +211,7 @@ export default function AdminSignaturePackages() {
       customerName: pkg.customerName,
       phoneNumber: pkg.phoneNumber,
       planName: pkg.planName,
+      packagePeriod: pkg.packagePeriod ?? "Monthly",
       amount: String(pkg.amount),
       startDate: pkg.startDate ? toInputDateValue(pkg.startDate.toDate()) : toInputDateValue(today),
       expiryDate: pkg.expiryDate ? toInputDateValue(pkg.expiryDate.toDate()) : toInputDateValue(addDays(today, 30)),
@@ -216,7 +237,7 @@ export default function AdminSignaturePackages() {
     }
 
     await deleteDoc(doc(db, signaturePackageCollection, pkg.id));
-    setMessage(`${pkg.customerName}'s monthly package deleted.`);
+    setMessage(`${pkg.customerName}'s signature package deleted.`);
   };
 
   return (
@@ -232,7 +253,7 @@ export default function AdminSignaturePackages() {
           ["Total Packages", packageStats.total],
           ["Active Packages", packageStats.active],
           ["Expiring Soon", packageStats.expiring],
-          ["Monthly Value", `Rs. ${packageStats.monthlyValue}`],
+          ["Package Value", `Rs. ${packageStats.packageValue}`],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F97316]">
@@ -246,7 +267,7 @@ export default function AdminSignaturePackages() {
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <form onSubmit={submitPackage} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
           <h2 className="text-2xl font-black text-white">
-            {form.id ? "Edit Monthly Package" : "Add Offline Monthly Package"}
+            {form.id ? "Edit Signature Package" : "Add Offline Signature Package"}
           </h2>
           <div className="mt-5 grid gap-4">
             <input
@@ -278,9 +299,19 @@ export default function AdminSignaturePackages() {
             >
               {signaturePackagePlans.map((plan) => (
                 <option key={plan.name} value={plan.name}>
-                  {plan.name} - Rs. {plan.monthlyPrice}
+                  {plan.name} - Weekly Rs. {plan.weeklyPrice} | Monthly Rs. {plan.monthlyPrice}
                 </option>
               ))}
+            </select>
+            <select
+              value={form.packagePeriod}
+              onChange={(event) =>
+                updatePackagePeriod(event.target.value as SignaturePackagePeriod)
+              }
+              className="h-12 rounded-lg border border-white/10 bg-black px-4 text-white outline-none"
+            >
+              <option value="Weekly">Weekly package</option>
+              <option value="Monthly">Monthly package</option>
             </select>
             <input
               required
@@ -290,7 +321,7 @@ export default function AdminSignaturePackages() {
               onChange={(event) =>
                 setForm((current) => ({ ...current, amount: event.target.value }))
               }
-              placeholder="Monthly amount"
+              placeholder="Package amount"
               className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
             />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -301,7 +332,11 @@ export default function AdminSignaturePackages() {
                   type="date"
                   value={form.startDate}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, startDate: event.target.value }))
+                    setForm((current) => ({
+                      ...current,
+                      startDate: event.target.value,
+                      expiryDate: getExpiryDate(event.target.value, current.packagePeriod),
+                    }))
                   }
                   className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
                 />
@@ -375,7 +410,7 @@ export default function AdminSignaturePackages() {
                     </p>
                     <h3 className="mt-2 text-xl font-black text-white">{pkg.customerName}</h3>
                     <p className="mt-2 text-sm leading-6 text-zinc-300">
-                      {pkg.phoneNumber} | {pkg.planName} | Rs. {pkg.amount}
+                      {pkg.phoneNumber} | {pkg.planName} | {pkg.packagePeriod ?? "Monthly"} | Rs. {pkg.amount}
                     </p>
                     <p className="mt-1 text-sm leading-6 text-zinc-400">
                       Start: {formatPackageDate(pkg.startDate)} | Expiry: {formatPackageDate(pkg.expiryDate)}
@@ -423,7 +458,7 @@ export default function AdminSignaturePackages() {
 
           {filteredPackages.length === 0 && (
             <p className="rounded-lg border border-white/10 bg-white/[0.06] p-8 text-center text-zinc-300">
-              No monthly packages found.
+              No signature packages found.
             </p>
           )}
         </div>

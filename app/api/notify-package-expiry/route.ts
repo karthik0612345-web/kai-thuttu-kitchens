@@ -83,7 +83,7 @@ async function sendPackageExpiryNotification({
           token,
           notification: {
             title: "Signature Meal Box expiring soon",
-            body: `${planName} expires on ${expiryDate}. Recharge now to continue your monthly meals.`,
+            body: `${planName} expires on ${expiryDate}. Recharge now to continue your meal package.`,
           },
           webpush: {
             notification: {
