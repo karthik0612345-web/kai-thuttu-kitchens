@@ -57,8 +57,39 @@ function getExpiryDate(startDate: string, packagePeriod: SignaturePackagePeriod)
   return toInputDateValue(addDays(new Date(`${startDate}T00:00:00`), signaturePackageDurations[packagePeriod]));
 }
 
+function parsePackageDateInput(value: string) {
+  const trimmedValue = value.trim();
+  const isoMatch = trimmedValue.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const slashMatch = trimmedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (slashMatch) {
+    const [, first, second, year] = slashMatch;
+    const firstNumber = Number(first);
+    const secondNumber = Number(second);
+    const parsedYear = Number(year);
+
+    if (firstNumber > 12) {
+      return new Date(parsedYear, secondNumber - 1, firstNumber);
+    }
+
+    return new Date(parsedYear, firstNumber - 1, secondNumber);
+  }
+
+  return new Date(`${trimmedValue}T00:00:00`);
+}
+
+function isValidPackageDate(date: Date) {
+  return Number.isFinite(date.getTime());
+}
+
 function dateInputToTimestamp(value: string) {
-  const date = new Date(`${value}T00:00:00`);
+  const date = parsePackageDateInput(value);
   return Timestamp.fromDate(date);
 }
 
@@ -172,6 +203,14 @@ export default function AdminSignaturePackages() {
       return;
     }
 
+    const startDate = parsePackageDateInput(form.startDate);
+    const expiryDate = parsePackageDateInput(form.expiryDate);
+
+    if (!isValidPackageDate(startDate) || !isValidPackageDate(expiryDate)) {
+      setMessage("Enter dates as YYYY-MM-DD, DD/MM/YYYY, or MM/DD/YYYY.");
+      return;
+    }
+
     const packageId = form.id
       ? packages.find((pkg) => pkg.id === form.id)?.packageId ?? form.id
       : createSignaturePackageId(phoneNumber, form.planName, form.packagePeriod);
@@ -186,8 +225,8 @@ export default function AdminSignaturePackages() {
       packageDurationDays: signaturePackageDurations[form.packagePeriod],
       amount,
       status: form.status,
-      startDate: dateInputToTimestamp(form.startDate),
-      expiryDate: dateInputToTimestamp(form.expiryDate),
+      startDate: Timestamp.fromDate(startDate),
+      expiryDate: Timestamp.fromDate(expiryDate),
       paymentMode: "offline",
       paymentStatus: "offline_paid",
       updatedAt: serverTimestamp(),
@@ -335,17 +374,16 @@ export default function AdminSignaturePackages() {
                 Start date
                 <input
                   required
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
                   value={form.startDate}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
                       startDate: event.target.value,
-                      expiryDate: current.isExpiryDateManual
-                        ? current.expiryDate
-                        : getExpiryDate(event.target.value, current.packagePeriod),
                     }))
                   }
+                  placeholder="YYYY-MM-DD"
                   className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
                 />
               </label>
@@ -353,7 +391,8 @@ export default function AdminSignaturePackages() {
                 Expiry date
                 <input
                   required
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
                   value={form.expiryDate}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -362,6 +401,7 @@ export default function AdminSignaturePackages() {
                       isExpiryDateManual: true,
                     }))
                   }
+                  placeholder="YYYY-MM-DD"
                   className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
                 />
               </label>
