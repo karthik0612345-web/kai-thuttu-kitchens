@@ -40,6 +40,7 @@ const initialPackageForm = {
   amount: String(signaturePackagePlans[0].monthlyPrice),
   startDate: toInputDateValue(today),
   expiryDate: toInputDateValue(addDays(today, 30)),
+  isExpiryDateManual: false,
   status: "active" as SignaturePackageStatus,
 };
 
@@ -133,7 +134,9 @@ export default function AdminSignaturePackages() {
       ...current,
       planName,
       amount: String(getPlanPrice(planName, current.packagePeriod)),
-      expiryDate: getExpiryDate(current.startDate, current.packagePeriod),
+      expiryDate: current.isExpiryDateManual
+        ? current.expiryDate
+        : getExpiryDate(current.startDate, current.packagePeriod),
     }));
   };
 
@@ -142,7 +145,9 @@ export default function AdminSignaturePackages() {
       ...current,
       packagePeriod,
       amount: String(getPlanPrice(current.planName, packagePeriod)),
-      expiryDate: getExpiryDate(current.startDate, packagePeriod),
+      expiryDate: current.isExpiryDateManual
+        ? current.expiryDate
+        : getExpiryDate(current.startDate, packagePeriod),
     }));
   };
 
@@ -215,6 +220,7 @@ export default function AdminSignaturePackages() {
       amount: String(pkg.amount),
       startDate: pkg.startDate ? toInputDateValue(pkg.startDate.toDate()) : toInputDateValue(today),
       expiryDate: pkg.expiryDate ? toInputDateValue(pkg.expiryDate.toDate()) : toInputDateValue(addDays(today, 30)),
+      isExpiryDateManual: true,
       status: pkg.status,
     });
   };
@@ -335,7 +341,9 @@ export default function AdminSignaturePackages() {
                     setForm((current) => ({
                       ...current,
                       startDate: event.target.value,
-                      expiryDate: getExpiryDate(event.target.value, current.packagePeriod),
+                      expiryDate: current.isExpiryDateManual
+                        ? current.expiryDate
+                        : getExpiryDate(event.target.value, current.packagePeriod),
                     }))
                   }
                   className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
@@ -348,7 +356,11 @@ export default function AdminSignaturePackages() {
                   type="date"
                   value={form.expiryDate}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, expiryDate: event.target.value }))
+                    setForm((current) => ({
+                      ...current,
+                      expiryDate: event.target.value,
+                      isExpiryDateManual: true,
+                    }))
                   }
                   className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
                 />
