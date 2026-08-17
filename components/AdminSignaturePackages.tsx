@@ -705,7 +705,7 @@ export default function AdminSignaturePackages() {
                     onClick={() => updatePackageAttendance(pkg, "delivered")}
                     className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-zinc-500"
                   >
-                    Mark 3 Meals Delivered
+                    Delivered
                   </button>
                   <button
                     type="button"
