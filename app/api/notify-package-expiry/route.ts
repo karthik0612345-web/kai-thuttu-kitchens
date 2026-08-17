@@ -4,6 +4,7 @@ import {
   signaturePackageCollection,
   signaturePackageExpiryNoticeDays,
 } from "@/lib/signaturePackages";
+import { sendPackageExpirySms } from "@/lib/sms";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ type FirestoreRunQueryResult = {
     fields?: {
       packageId?: { stringValue?: string };
       customerName?: { stringValue?: string };
+      phoneNumber?: { stringValue?: string };
       planName?: { stringValue?: string };
       expiryDate?: { timestampValue?: string };
       lastExpiryNotificationAt?: { timestampValue?: string };
@@ -188,12 +190,16 @@ export async function GET(request: Request) {
     const packages = await getExpiringPackages();
     const today = startOfToday();
     let sent = 0;
+    let smsSent = 0;
     let skipped = 0;
     let failed = 0;
+    let smsFailed = 0;
 
     for (const pkg of packages) {
       const packageDocumentId = getDocumentId(pkg.name);
       const packageId = pkg.fields?.packageId?.stringValue ?? packageDocumentId;
+      const customerName = pkg.fields?.customerName?.stringValue ?? "Customer";
+      const phoneNumber = pkg.fields?.phoneNumber?.stringValue ?? "";
       const planName = pkg.fields?.planName?.stringValue ?? "Signature Meal Box";
       const expiryDate = pkg.fields?.expiryDate?.timestampValue
         ? new Date(pkg.fields.expiryDate.timestampValue).toLocaleDateString("en-IN", {
@@ -212,28 +218,51 @@ export async function GET(request: Request) {
       }
 
       const tokens = getPackageTokens(pkg);
+      let packageSent = 0;
+      let packageSmsSent = 0;
 
-      if (tokens.length === 0) {
-        skipped += 1;
-        continue;
+      if (tokens.length > 0) {
+        const results = await Promise.allSettled(
+          tokens.map((token) =>
+            sendPackageExpiryNotification({
+              token,
+              packageId,
+              planName,
+              expiryDate,
+            }),
+          ),
+        );
+        packageSent = results.filter((result) => result.status === "fulfilled").length;
+
+        sent += packageSent;
+        failed += results.length - packageSent;
       }
 
-      const results = await Promise.allSettled(
-        tokens.map((token) =>
-          sendPackageExpiryNotification({
-            token,
-            packageId,
+      if (phoneNumber) {
+        try {
+          const smsResult = await sendPackageExpirySms({
+            phoneNumber,
+            customerName,
             planName,
             expiryDate,
-          }),
-        ),
-      );
-      const packageSent = results.filter((result) => result.status === "fulfilled").length;
+            packageId,
+          });
 
-      sent += packageSent;
-      failed += results.length - packageSent;
+          if (smsResult.sent) {
+            packageSmsSent = 1;
+            smsSent += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (error) {
+          console.error("Unable to send package expiry SMS:", error);
+          smsFailed += 1;
+        }
+      } else if (tokens.length === 0) {
+        skipped += 1;
+      }
 
-      if (packageSent > 0) {
+      if (packageSent > 0 || packageSmsSent > 0) {
         await updateFirestoreDocument(signaturePackageCollection, packageDocumentId, {
           lastExpiryNotificationAt: { timestampValue: new Date().toISOString() },
           updatedAt: { timestampValue: new Date().toISOString() },
@@ -245,8 +274,10 @@ export async function GET(request: Request) {
       success: true,
       checked: packages.length,
       sent,
+      smsSent,
       skipped,
       failed,
+      smsFailed,
     });
   } catch (error) {
     return NextResponse.json(

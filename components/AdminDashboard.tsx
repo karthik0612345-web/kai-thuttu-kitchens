@@ -435,7 +435,7 @@ export default function AdminDashboard() {
       [`statusHistory.${status}`]: serverTimestamp(),
     });
 
-    if (notificationTokens.length > 0) {
+    if (notificationTokens.length > 0 || order?.customerDetails?.phoneNumber) {
       try {
         await fetch("/api/notify-order-status", {
           method: "POST",
@@ -446,6 +446,7 @@ export default function AdminDashboard() {
             tokens: notificationTokens,
             orderId: order?.orderId ?? orderId,
             status,
+            phoneNumber: order?.customerDetails?.phoneNumber ?? "",
           }),
         });
       } catch (error) {

@@ -26,11 +26,13 @@ import {
   signaturePackagePlans,
   toInputDateValue,
   type SignaturePackage,
+  type SignaturePackageAttendanceStatus,
   type SignaturePackagePeriod,
   type SignaturePackageStatus,
 } from "@/lib/signaturePackages";
 
 const today = new Date();
+const dailyMealCount = 3;
 const initialPackageForm = {
   id: "",
   customerName: "",
@@ -93,10 +95,46 @@ function dateInputToTimestamp(value: string) {
   return Timestamp.fromDate(date);
 }
 
+function getDispatchDateValue() {
+  return toInputDateValue(new Date());
+}
+
+function getAttendanceLabel(status?: SignaturePackageAttendanceStatus) {
+  if (status === "delivered") {
+    return "Delivered 3 meals";
+  }
+
+  if (status === "skipped") {
+    return "Not taking today";
+  }
+
+  return "Pending";
+}
+
+function getAttendanceTone(status?: SignaturePackageAttendanceStatus) {
+  if (status === "delivered") {
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-200";
+  }
+
+  if (status === "skipped") {
+    return "border-[#E9B44C]/35 bg-[#E9B44C]/10 text-[#E9B44C]";
+  }
+
+  return "border-white/10 bg-white/[0.06] text-zinc-300";
+}
+
+function countAttendanceByStatus(
+  attendance: Record<string, { status: SignaturePackageAttendanceStatus }>,
+  status: SignaturePackageAttendanceStatus,
+) {
+  return Object.values(attendance).filter((entry) => entry.status === status).length;
+}
+
 export default function AdminSignaturePackages() {
   const [packages, setPackages] = useState<SignaturePackage[]>([]);
   const [form, setForm] = useState(initialPackageForm);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dispatchDate, setDispatchDate] = useState(getDispatchDateValue());
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -155,6 +193,23 @@ export default function AdminSignaturePackages() {
       packageValue,
     };
   }, [packages]);
+
+  const dispatchStats = useMemo(() => {
+    const activePackages = packages.filter((pkg) => pkg.status === "active");
+    const delivered = activePackages.filter(
+      (pkg) => pkg.deliveryAttendance?.[dispatchDate]?.status === "delivered",
+    ).length;
+    const skipped = activePackages.filter(
+      (pkg) => pkg.deliveryAttendance?.[dispatchDate]?.status === "skipped",
+    ).length;
+
+    return {
+      total: activePackages.length,
+      delivered,
+      skipped,
+      pending: Math.max(activePackages.length - delivered - skipped, 0),
+    };
+  }, [dispatchDate, packages]);
 
   const resetForm = () => {
     setForm(initialPackageForm);
@@ -285,6 +340,96 @@ export default function AdminSignaturePackages() {
     setMessage(`${pkg.customerName}'s signature package deleted.`);
   };
 
+  const updatePackageAttendance = async (
+    pkg: SignaturePackage,
+    status: SignaturePackageAttendanceStatus,
+  ) => {
+    if (!db) {
+      return;
+    }
+
+    const attendanceDate = parsePackageDateInput(dispatchDate);
+
+    if (!isValidPackageDate(attendanceDate)) {
+      setMessage("Enter dispatch date as YYYY-MM-DD, DD/MM/YYYY, or MM/DD/YYYY.");
+      return;
+    }
+
+    const normalizedDispatchDate = toInputDateValue(attendanceDate);
+    const previousStatus = pkg.deliveryAttendance?.[normalizedDispatchDate]?.status;
+    const extensionDelta =
+      status === "skipped" && previousStatus !== "skipped"
+        ? 1
+        : status === "delivered" && previousStatus === "skipped"
+          ? -1
+          : 0;
+    const nextAttendance = {
+      ...(pkg.deliveryAttendance ?? {}),
+      [normalizedDispatchDate]: {
+        date: normalizedDispatchDate,
+        status,
+        mealsCount: status === "delivered" ? dailyMealCount : 0,
+        expiryExtended: status === "skipped",
+        markedAt: serverTimestamp(),
+      },
+    };
+    const updates = {
+      deliveryAttendance: nextAttendance,
+      deliveredDaysCount: countAttendanceByStatus(nextAttendance, "delivered"),
+      skippedDaysAdded: countAttendanceByStatus(nextAttendance, "skipped"),
+      updatedAt: serverTimestamp(),
+    } as Record<string, unknown>;
+
+    if (extensionDelta !== 0) {
+      const currentExpiryDate = pkg.expiryDate?.toDate?.() ?? new Date();
+      updates.expiryDate = Timestamp.fromDate(addDays(currentExpiryDate, extensionDelta));
+      updates.lastExpiryNotificationAt = null;
+    }
+
+    await updateDoc(doc(db, signaturePackageCollection, pkg.id), updates);
+    setDispatchDate(normalizedDispatchDate);
+    setMessage(
+      status === "skipped"
+        ? `${pkg.customerName} marked not taking meals on ${normalizedDispatchDate}. Expiry extended by one day.`
+        : `${pkg.customerName} marked delivered for ${dailyMealCount} meals on ${normalizedDispatchDate}.`,
+    );
+  };
+
+  const clearPackageAttendance = async (pkg: SignaturePackage) => {
+    if (!db) {
+      return;
+    }
+
+    const attendanceDate = parsePackageDateInput(dispatchDate);
+
+    if (!isValidPackageDate(attendanceDate)) {
+      setMessage("Enter dispatch date as YYYY-MM-DD, DD/MM/YYYY, or MM/DD/YYYY.");
+      return;
+    }
+
+    const normalizedDispatchDate = toInputDateValue(attendanceDate);
+    const previousStatus = pkg.deliveryAttendance?.[normalizedDispatchDate]?.status;
+    const nextAttendance = { ...(pkg.deliveryAttendance ?? {}) };
+    delete nextAttendance[normalizedDispatchDate];
+
+    const updates = {
+      deliveryAttendance: nextAttendance,
+      deliveredDaysCount: countAttendanceByStatus(nextAttendance, "delivered"),
+      skippedDaysAdded: countAttendanceByStatus(nextAttendance, "skipped"),
+      updatedAt: serverTimestamp(),
+    } as Record<string, unknown>;
+
+    if (previousStatus === "skipped") {
+      const currentExpiryDate = pkg.expiryDate?.toDate?.() ?? new Date();
+      updates.expiryDate = Timestamp.fromDate(addDays(currentExpiryDate, -1));
+      updates.lastExpiryNotificationAt = null;
+    }
+
+    await updateDoc(doc(db, signaturePackageCollection, pkg.id), updates);
+    setDispatchDate(normalizedDispatchDate);
+    setMessage(`${pkg.customerName}'s dispatch mark cleared for ${normalizedDispatchDate}.`);
+  };
+
   return (
     <div className="mt-8 grid gap-6">
       {message && (
@@ -307,6 +452,59 @@ export default function AdminSignaturePackages() {
             <p className="mt-3 text-2xl font-black text-white">{value}</p>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-lg border border-[#E9B44C]/20 bg-[#1A120D] p-5">
+        <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F97316]">
+              Daily Signature Dispatch
+            </p>
+            <h2 className="mt-2 text-2xl font-black text-white">
+              Mark attendance for {dailyMealCount} meals
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              If a customer is not taking meals on this date, mark it as skipped. One extra day will be added to their package expiry.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_0.8fr] sm:items-end">
+            <label className="grid gap-2 text-sm font-bold text-zinc-200">
+              Dispatch date
+              <input
+                required
+                type="text"
+                inputMode="numeric"
+                value={dispatchDate}
+                onChange={(event) => setDispatchDate(event.target.value)}
+                placeholder="YYYY-MM-DD"
+                className="h-12 rounded-lg border border-white/10 bg-black/35 px-4 text-white outline-none"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setDispatchDate(getDispatchDateValue())}
+              className="h-12 rounded-full border border-[#E9B44C]/30 px-5 text-sm font-black text-[#E9B44C] transition hover:bg-[#E9B44C] hover:text-black"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+          {[
+            ["Active", dispatchStats.total],
+            ["Delivered", dispatchStats.delivered],
+            ["Not Taking", dispatchStats.skipped],
+            ["Pending", dispatchStats.pending],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
+                {label}
+              </p>
+              <p className="mt-2 text-2xl font-black text-white">{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -452,6 +650,10 @@ export default function AdminSignaturePackages() {
           {filteredPackages.map((pkg) => {
             const daysRemaining = getPackageDaysRemaining(pkg.expiryDate);
             const label = getPackageStatusLabel(pkg);
+            const normalizedDispatchDate = isValidPackageDate(parsePackageDateInput(dispatchDate))
+              ? toInputDateValue(parsePackageDateInput(dispatchDate))
+              : dispatchDate;
+            const attendanceStatus = pkg.deliveryAttendance?.[normalizedDispatchDate]?.status;
 
             return (
               <article key={pkg.id} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
@@ -475,6 +677,14 @@ export default function AdminSignaturePackages() {
                           : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining`}{" "}
                       | {label}
                     </p>
+                    <div
+                      className={`mt-3 w-fit rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${getAttendanceTone(attendanceStatus)}`}
+                    >
+                      {normalizedDispatchDate}: {getAttendanceLabel(attendanceStatus)}
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-zinc-500">
+                      Delivered days: {pkg.deliveredDaysCount ?? 0} | Extra skipped days added: {pkg.skippedDaysAdded ?? 0}
+                    </p>
                   </div>
                   <select
                     value={pkg.status}
@@ -489,6 +699,31 @@ export default function AdminSignaturePackages() {
                   </select>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={pkg.status === "cancelled"}
+                    onClick={() => updatePackageAttendance(pkg, "delivered")}
+                    className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-zinc-500"
+                  >
+                    Mark 3 Meals Delivered
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pkg.status === "cancelled"}
+                    onClick={() => updatePackageAttendance(pkg, "skipped")}
+                    className="rounded-full bg-[#E9B44C] px-4 py-2 text-sm font-black text-black transition hover:bg-[#F97316] hover:text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-zinc-500"
+                  >
+                    Not Taking Today +1 Day
+                  </button>
+                  {attendanceStatus && (
+                    <button
+                      type="button"
+                      onClick={() => clearPackageAttendance(pkg)}
+                      className="rounded-full border border-white/15 px-4 py-2 text-sm font-black text-zinc-200 transition hover:border-[#E9B44C] hover:text-[#E9B44C]"
+                    >
+                      Clear Mark
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => editPackage(pkg)}

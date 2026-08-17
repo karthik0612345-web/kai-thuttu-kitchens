@@ -224,9 +224,10 @@ export default function AdminOrderManagement() {
       const notificationTokens = Array.from(
         new Set([...(order.notificationTokens ?? []), ...(order.notificationToken ? [order.notificationToken] : [])]),
       );
-      let notificationMessage = "No customer notification token saved yet.";
+      const customerPhoneNumber = order.customerDetails?.phoneNumber ?? "";
+      let notificationMessage = "No customer notification token or phone number saved yet.";
 
-      if (notificationTokens.length > 0) {
+      if (notificationTokens.length > 0 || customerPhoneNumber) {
         try {
           const response = await fetch("/api/notify-order-status", {
             method: "POST",
@@ -235,11 +236,14 @@ export default function AdminOrderManagement() {
               tokens: notificationTokens,
               orderId: order.orderId,
               status: selectedStatus,
+              phoneNumber: customerPhoneNumber,
             }),
           });
           const result = await response.json();
+          const pushSent = result.sent ?? 0;
+          const smsSent = result.smsSent ?? 0;
           notificationMessage = result.success
-            ? `Customer notification sent to ${result.sent ?? notificationTokens.length} device${(result.sent ?? notificationTokens.length) === 1 ? "" : "s"}.`
+            ? `Customer notification sent${pushSent ? ` to ${pushSent} device${pushSent === 1 ? "" : "s"}` : ""}${smsSent ? `${pushSent ? " and" : ""} by SMS` : ""}.`
             : "Status saved, but push notification is not configured yet.";
         } catch (error) {
           console.error("Unable to send order notification:", error);

@@ -39,6 +39,14 @@ export const signaturePackagePlans = [
 ] as const;
 
 export type SignaturePackageStatus = "active" | "expired" | "cancelled";
+export type SignaturePackageAttendanceStatus = "delivered" | "skipped";
+export type SignaturePackageAttendanceEntry = {
+  date: string;
+  status: SignaturePackageAttendanceStatus;
+  mealsCount: number;
+  expiryExtended: boolean;
+  markedAt?: Timestamp;
+};
 
 export type SignaturePackage = {
   id: string;
@@ -57,6 +65,9 @@ export type SignaturePackage = {
   paymentStatus?: "offline_paid" | "pending" | "paid";
   notificationToken?: string | null;
   notificationTokens?: string[];
+  deliveryAttendance?: Record<string, SignaturePackageAttendanceEntry>;
+  deliveredDaysCount?: number;
+  skippedDaysAdded?: number;
   lastExpiryNotificationAt?: Timestamp | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

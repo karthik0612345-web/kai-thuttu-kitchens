@@ -158,8 +158,10 @@ export default function DeliveryDashboard() {
       new Set([...(order.notificationTokens ?? []), ...(order.notificationToken ? [order.notificationToken] : [])]),
     );
 
-    if (notificationTokens.length === 0) {
-      return "No customer notification token saved for this order.";
+    const customerPhoneNumber = order.customerDetails?.phoneNumber ?? "";
+
+    if (notificationTokens.length === 0 && !customerPhoneNumber) {
+      return "No customer notification token or phone number saved for this order.";
     }
 
     try {
@@ -170,12 +172,15 @@ export default function DeliveryDashboard() {
           tokens: notificationTokens,
           orderId: order.orderId,
           status,
+          phoneNumber: customerPhoneNumber,
         }),
       });
       const result = await response.json();
+      const pushSent = result.sent ?? 0;
+      const smsSent = result.smsSent ?? 0;
 
       return result.success
-        ? `Customer notification sent to ${result.sent ?? notificationTokens.length} device${(result.sent ?? notificationTokens.length) === 1 ? "" : "s"}.`
+        ? `Customer notification sent${pushSent ? ` to ${pushSent} device${pushSent === 1 ? "" : "s"}` : ""}${smsSent ? `${pushSent ? " and" : ""} by SMS` : ""}.`
         : "Status saved, but push notification is not configured yet.";
     } catch (error) {
       console.error("Unable to send delivery notification:", error);

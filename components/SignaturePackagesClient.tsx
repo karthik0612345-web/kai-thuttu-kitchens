@@ -467,6 +467,18 @@ export default function SignaturePackagesClient() {
                   </span>
                   {formatPackageDate(pkg.expiryDate)}
                 </p>
+                <p>
+                  <span className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
+                    Delivered Days
+                  </span>
+                  {pkg.deliveredDaysCount ?? 0}
+                </p>
+                <p>
+                  <span className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
+                    Extra Days Added
+                  </span>
+                  {pkg.skippedDaysAdded ?? 0}
+                </p>
               </div>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

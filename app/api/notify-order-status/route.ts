@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { sendOrderStatusSms } from "@/lib/sms";
 
 const fcmServerKey = process.env.FCM_SERVER_KEY;
 const firebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -176,14 +177,16 @@ export async function POST(request: Request) {
     tokens?: string[];
     orderId?: string;
     status?: string;
+    phoneNumber?: string;
   };
+  const phoneNumber = typeof payload.phoneNumber === "string" ? payload.phoneNumber : "";
   const targetTokens = Array.from(
     new Set([...(tokens ?? []), ...(token ? [token] : [])].filter(Boolean)),
   );
 
-  if (targetTokens.length === 0 || !orderId || !status) {
+  if ((!targetTokens.length && !phoneNumber) || !orderId || !status) {
     return NextResponse.json(
-      { error: "Missing notification token, orderId, or status." },
+      { error: "Missing notification token/customer phone, orderId, or status." },
       { status: 400 },
     );
   }
@@ -203,11 +206,36 @@ export async function POST(request: Request) {
     );
     const sent = results.filter((result) => result.status === "fulfilled").length;
     const failed = results.length - sent;
+    let smsSent = 0;
+    let smsFailed = 0;
+    let smsSkipped = 0;
+
+    if (phoneNumber) {
+      try {
+        const smsResult = await sendOrderStatusSms({
+          phoneNumber,
+          orderId,
+          message: body,
+        });
+
+        if (smsResult.sent) {
+          smsSent = 1;
+        } else {
+          smsSkipped = 1;
+        }
+      } catch (error) {
+        console.error("Unable to send order status SMS:", error);
+        smsFailed = 1;
+      }
+    }
 
     return NextResponse.json({
-      success: sent > 0,
+      success: sent > 0 || smsSent > 0,
       sent,
       failed,
+      smsSent,
+      smsFailed,
+      smsSkipped,
       total: targetTokens.length,
       results,
     });
