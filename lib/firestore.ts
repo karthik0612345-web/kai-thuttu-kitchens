@@ -193,14 +193,16 @@ export async function saveSignaturePackageNotificationToken(packageId: string, t
 }
 
 function getSignaturePackageFromOrderItem(item: OrderItem) {
-  const normalizedCategory = item.category.trim().toLowerCase();
+  const normalizedCategory = item.category.trim().replace(/\s+/g, " ").toLowerCase();
   const normalizedName = item.name.trim();
+  const normalizedPlanName = normalizedName.toLowerCase();
+  const hasSignaturePlanSuffix = /\s+-\s+(weekly|monthly)\s+plan$/i.test(normalizedName);
 
-  if (normalizedCategory !== "signature meal boxes starter") {
+  if (normalizedCategory !== "signature meal boxes starter" && !hasSignaturePlanSuffix) {
     return null;
   }
 
-  const planPeriod: SignaturePackagePeriod = normalizedName.toLowerCase().includes("weekly")
+  const planPeriod: SignaturePackagePeriod = normalizedPlanName.includes("weekly")
     ? "Weekly"
     : "Monthly";
   const planName = normalizedName
@@ -241,6 +243,7 @@ export async function createSignaturePackagesFromOrder(
     return [];
   }
 
+  const firestore = db;
   const now = new Date();
   const createdPackageIds: string[] = [];
 
@@ -252,7 +255,7 @@ export async function createSignaturePackagesFromOrder(
           packageDetails.planName,
           packageDetails.packagePeriod,
         );
-        const packageReference = doc(collection(db!, signaturePackageCollection), packageId);
+        const packageReference = doc(collection(firestore, signaturePackageCollection), packageId);
         const expiryDate = addDays(now, packageDetails.packageDurationDays);
 
         await setDoc(packageReference, {
